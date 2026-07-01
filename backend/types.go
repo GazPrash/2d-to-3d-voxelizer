@@ -1,0 +1,48 @@
+package backend
+
+import "image"
+
+type Vector3 struct{ x, y, z int }
+
+type RGB struct {
+	r, g, b float64
+}
+
+type Mode int
+
+const (
+	SINGLE Mode = iota + 1
+	DUAL
+	QUAD
+)
+
+type Voxel struct {
+	Color      RGB // Base color (Front/Back)
+	LeftColor  RGB // Color for the left face
+	RightColor   RGB // Color for the right face
+	RearColor    RGB // Color for the rear face
+	IsQuad       bool
+	OverrideRear bool
+}
+
+type Settings struct {
+	Layout               string
+	Repeated             bool
+	Shape                string
+	BiasedScalingEnabled bool
+	BiasedScaleTop       float64
+	BiasedScaleMiddle    float64
+	BiasedScaleBottom    float64
+	DepthScale           float64
+	FlatDepth            float64
+	VoxelScale           float64 // scale factor for global voxel size (1.0 to 3.0)
+}
+
+type InputImage struct {
+	img      image.Image
+	mode     Mode
+	settings Settings
+	bounds   image.Rectangle
+	width    int
+	height   int
+}

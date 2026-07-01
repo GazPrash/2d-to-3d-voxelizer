@@ -1,0 +1,13 @@
+{
+  "$schema": "https://wails.io/schemas/config.v2.json",
+  "name": "pix2dTo3dApp",
+  "outputfilename": "pix2dTo3dApp",
+  "frontend:install": "npm install",
+  "frontend:build": "npm run build",
+  "frontend:dev:watcher": "npm run dev",
+  "frontend:dev:serverUrl": "auto",
+  "author": {
+    "name": "GazPrash",
+    "email": "prashantshrivastava118@gmail.com"
+  }
+}

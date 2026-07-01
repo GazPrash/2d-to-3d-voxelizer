@@ -1,0 +1,223 @@
+package backend
+
+import (
+	"bytes"
+	"encoding/base64"
+	"fmt"
+	"image"
+	_ "image/jpeg"
+	_ "image/png"
+	"log"
+	"math"
+	"math/rand"
+	"pix2dTo3dApp/backend/logging"
+)
+
+func parseImage(base46Str string, settings Settings) (*InputImage, error) {
+	data, err := base64.StdEncoding.DecodeString(base46Str)
+	if err != nil {
+		return nil, err
+	}
+
+	img, _, err := image.Decode(bytes.NewReader(data))
+	println(img)
+	if err != nil {
+		log.Printf("Error decoding image: %v\n", err)
+		return nil, err
+	}
+
+	bounds := img.Bounds()
+	width := bounds.Max.X
+	height := bounds.Max.Y
+
+	mode := SINGLE
+	if settings.Layout == "quad" || (settings.Layout == "auto" && width >= height*4-8) {
+		mode = QUAD
+		width = width / 4
+		settings.Shape = "flat"
+		settings.FlatDepth = float64(width) / 2.0
+		logging.INFO("Mode: QUAD [Left, Front, Right, Back]\n")
+	} else if settings.Layout == "dual" || (settings.Layout == "auto" && width >= height*2-4) {
+		mode = DUAL
+		width = width / 2
+		logging.INFO("Mode: DUAL [Side-by-side for front and back respectively]\n")
+	} else {
+		logging.INFO("Mode: SINGLE [Mirroring front texture to the back]\n")
+	}
+
+	logging.INFO(fmt.Sprintf("Processing image: %dx%d\n", width, height))
+	inputImg := InputImage{
+		img:      img,
+		mode:     mode,
+		settings: settings,
+		bounds:   bounds,
+		width:    width,
+		height:   height,
+	}
+
+	return &inputImg, nil
+}
+
+func DepthComputation(inpImg InputImage) *[][]int {
+	width := inpImg.width
+	height := inpImg.height
+	// a finite infinity so that we are safe from overflow in EDTF, populated acc to the image
+	Inf := float64((width+height)*(width+height) + 1000000)
+
+	grid := make([][]float64, width)
+
+	for i := range width {
+		grid[i] = make([]float64, height)
+		for j := range height {
+			var aF, aB uint32
+			if inpImg.mode == QUAD {
+				_, _, _, aF = inpImg.img.At(i+width, j).RGBA()
+				_, _, _, aB = inpImg.img.At(i+width*3, j).RGBA()
+			} else if inpImg.mode == DUAL {
+				_, _, _, aF = inpImg.img.At(i, j).RGBA()
+				_, _, _, aB = inpImg.img.At(i+width, j).RGBA()
+			} else {
+				_, _, _, aF = inpImg.img.At(i, j).RGBA()
+				aB = 0
+			}
+
+			if aF == 0 && aB == 0 {
+				grid[i][j] = 0 // Transparent
+			} else {
+				grid[i][j] = Inf
+			}
+		}
+	}
+
+	for i := range width {
+		grid[i] = EuclideanDistanceTransform1D(grid[i], Inf)
+	}
+
+	row := make([]float64, width)
+	for j := range height {
+		for i := range width {
+			row[i] = grid[i][j]
+		}
+		edtRow := EuclideanDistanceTransform1D(row, Inf)
+		for i := range width {
+			grid[i][j] = edtRow[i]
+		}
+	}
+
+	depths := fattenImage(&grid, width, height, Inf, inpImg.settings)
+	return depths
+}
+
+func EuclideanDistanceTransform1D(vector []float64, Inf float64) []float64 {
+	n := len(vector)
+	dist := make([]float64, n)
+
+	vertices := make([]int, n)
+	vertices[0] = 0
+
+	// index of the active parabola
+	k := 0
+
+	intersections := make([]float64, n+1)
+	intersections[0] = -Inf - 1
+	intersections[1] = Inf + 1
+
+	for i := 1; i < n; i++ {
+		var s float64
+		for {
+			s = ((vector[i] + float64(i*i)) - (vector[vertices[k]] + float64(vertices[k]*vertices[k]))) / (2.0 * float64(i-vertices[k]))
+			if s > intersections[k] {
+				break
+			}
+			k--
+		}
+		k++
+		vertices[k] = i
+		intersections[k] = s
+		intersections[k+1] = Inf + 1
+	}
+
+	k = 0
+	for q := range n {
+		for intersections[k+1] < float64(q) {
+			k++
+		}
+		dist[q] = float64((q-vertices[k])*(q-vertices[k])) + vector[vertices[k]]
+	}
+
+	return dist
+}
+
+// populates the z-axis coordinates for the image based on the shape settings & chosen type (humanoid/static obj)
+func fattenImage(grid *[][]float64, width int, height int, Inf float64, imgSettings Settings) *[][]int {
+	distances := make([][]int, width)
+	infThreshold := math.Sqrt(Inf) - 1
+
+	for i := range width {
+		distances[i] = make([]int, height)
+		for j := range height {
+			if (*grid)[i][j] == 0 {
+				continue // Transparent
+			}
+
+			if imgSettings.Shape == "flat" {
+				distances[i][j] = int(math.Round(imgSettings.FlatDepth))
+				continue
+			}
+
+			minDist := math.Sqrt((*grid)[i][j])
+
+			// If it's a completely solid image, use distance to edge
+			if minDist >= infThreshold {
+				minDist = math.Min(float64(min(i, width-i-1)), float64(min(j, height-j-1)))
+			}
+			if minDist <= 0 {
+				continue
+			}
+
+			// Apply rounded capsule-like profile to the base distance
+			r := math.Max(20.0, float64(min(width, height))*0.1)
+			if minDist < r {
+				minDist = math.Sqrt(minDist * (2*r - minDist))
+			} else {
+				minDist = r
+			}
+
+			// vertical bias
+			normalizedY := float64(j) / float64(height)
+			if imgSettings.BiasedScalingEnabled {
+				minDist *= customBias(normalizedY, imgSettings)
+			} else {
+				minDist *= defaultBias(normalizedY)
+			}
+
+			// organic Random Noise: ±10% variation so it's not perfectly smooth
+			minDist += (rand.Float64() - 0.5) * 0.2 * minDist
+
+			distances[i][j] = int(math.Round(minDist))
+		}
+	}
+	return &distances
+}
+
+// customBias returns a vertical depth multiplier using interpolated user multipliers
+func customBias(normalizedY float64, settings Settings) float64 {
+	if normalizedY < 0.5 {
+		t := normalizedY / 0.5
+		return settings.BiasedScaleTop + t*(settings.BiasedScaleMiddle-settings.BiasedScaleTop)
+	} else {
+		t := (normalizedY - 0.5) / 0.5
+		return settings.BiasedScaleMiddle + t*(settings.BiasedScaleBottom-settings.BiasedScaleMiddle)
+	}
+}
+
+// defaultBias returns a vertical depth multiplier using a symmetric bell
+// curve centred at the middle of the sprite so the thickness is even
+// from top to bottom.
+func defaultBias(normalizedY float64) float64 {
+	// Symmetric: thickest at the centre (y=0.5), tapering equally toward
+	// both the top and bottom edges.
+	// Range: 0.55 at the edges → 1.0 at the centre.
+	t := 2.0*(normalizedY-0.5)  // −1 … +1
+	return 0.55 + 0.45*(1.0-t*t) // parabolic bell
+}
