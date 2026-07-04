@@ -2,18 +2,14 @@
 
 ## About
 
-This is the official Wails React-TS template.
-
-You can configure the project by editing `wails.json`. More information about the project settings can be found
-here: https://wails.io/docs/reference/project-config
-
-## Live Development
-
-To run in live development mode, run `wails dev` in the project directory. This will run a Vite development
-server that will provide very fast hot reload of your frontend changes. If you want to develop in a browser
-and have access to your Go methods, there is also a dev server that runs on http://localhost:34115. Connect
-to this in your browser, and you can call your Go code from devtools.
+This app can be used to generate 3D voxel art based on a 2d pixel art sprite, or generate a fully 3d object
+based on provided 4 sided pixel-art sprite sheet. The output can be saved as a .obj file which can be imported or used
+with Blender, Unity, Godot or any other Game Engine or 3D Modelling software.
 
 ## Building
 
-To build a redistributable, production mode package, use `wails build`.
+RUN the Build version via on MacOS/Linux:
+
+```bash
+wails build && {open/xdg-open} build/bin/pix2dTo3dApp.app
+```
