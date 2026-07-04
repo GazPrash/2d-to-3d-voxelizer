@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"log"
 	"os"
 	"path/filepath"
 	"pix2dTo3dApp/backend"
@@ -48,18 +49,18 @@ func (a *App) ProcessImage(base64ImageData string, frontendSettings FrontendSett
 		VoxelScale:           frontendSettings.VoxelScale,
 	}
 
-	tempFile := filepath.Join(os.TempDir(), "pix2d_out.obj")
+	tempFile := filepath.Join(os.TempDir(), "pix2d_out_temp.obj")
 	err := backend.ConvertTo3D(base64ImageData, settings, tempFile)
 	if err != nil {
+		log.Printf("Failed to convert the input file; Err: %v", err)
 		return "", err
 	}
 
 	objData, err := os.ReadFile(tempFile)
 	if err != nil {
+		log.Printf("Failed to read the created object file; Err: %v", err)
 		return "", err
 	}
-
-	// Remove the temporary file after reading it
 	os.Remove(tempFile)
 
 	return string(objData), nil
@@ -80,7 +81,8 @@ func (a *App) SaveModel(objContent string) (string, error) {
 		return "", err
 	}
 	if filePath == "" {
-		return "", nil // User cancelled
+		// in case of cancellation by user
+		return "", nil
 	}
 
 	err = os.WriteFile(filePath, []byte(objContent), 0644)

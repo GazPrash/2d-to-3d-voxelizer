@@ -135,7 +135,7 @@ export default function Viewer({ objContent, onBack, onGenerateAgain }: ViewerPr
     <div className="app-container" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '1.5rem', padding: '2rem' }}>
       <div style={{
         width: '100%', 
-        maxWidth: '900px', 
+        maxWidth: '56.25rem', 
         height: '65vh', 
         borderRadius: '12px',
         overflow: 'hidden',
@@ -146,7 +146,7 @@ export default function Viewer({ objContent, onBack, onGenerateAgain }: ViewerPr
         <div ref={mountRef} style={{ width: '100%', height: '100%' }} />
       </div>
 
-      <div style={{ width: '100%', maxWidth: '900px', display: 'flex', justifyContent: 'center', gap: '1rem', alignItems: 'center' }}>
+      <div style={{ width: '100%', maxWidth: '56.25rem', display: 'flex', justifyContent: 'center', gap: '1rem', alignItems: 'center' }}>
         <button className="btn-small-rounded btn-accent" onClick={onBack} style={{ cursor: 'pointer' }}>
           ← Back to Generator
         </button>
