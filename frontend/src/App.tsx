@@ -21,6 +21,20 @@ function App() {
   const [depthScale, setDepthScale] = useState(0.4);
   const [flatDepth, setFlatDepth] = useState(5.0);
   const [voxelScale, setVoxelScale] = useState(1.0);
+  const [showCancel, setShowCancel] = useState(false);
+
+  useEffect(() => {
+    let timer: any;
+    if (viewState === 'loading') {
+      setShowCancel(false);
+      timer = setTimeout(() => {
+        setShowCancel(true);
+      }, 20000);
+    } else {
+      setShowCancel(false);
+    }
+    return () => clearTimeout(timer);
+  }, [viewState]);
 
   const onDragOver = (e: DragEvent<HTMLDivElement>) => {
     e.preventDefault();
@@ -123,9 +137,19 @@ function App() {
 
   if (viewState === 'loading') {
     return (
-      <div className="app-container" style={{ display: 'flex', flexDirection: 'row', justifyContent: 'center', alignItems: 'center', gap: '0.8rem' }}>
-        <div className="loader"></div>
-        <h2 style={{ color: 'white', margin: 0, fontSize: '0.9rem', fontWeight: 'normal' }}>Generating 3D Model...</h2>
+      <div className="app-container" style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', gap: '1rem' }}>
+        <div style={{ display: 'flex', flexDirection: 'row', alignItems: 'center', gap: '0.8rem' }}>
+          <div className="loader"></div>
+          <h2 style={{ color: '#334155', margin: 0, fontSize: '0.9rem', fontWeight: 'normal' }}>Generating 3D Model...</h2>
+        </div>
+        {showCancel && (
+          <button 
+            className="btn-small-rounded btn-save" 
+            onClick={() => setViewState('main')}
+          >
+            Cancel Generation
+          </button>
+        )}
       </div>
     );
   }
@@ -212,8 +236,8 @@ function App() {
                   onChange={(e) => setRepeated(e.target.checked)}
                   style={{ cursor: 'pointer', margin: 0 }}
                 />
-                <label htmlFor="repeated-texture-checkbox" style={{ fontSize: '0.95rem', color: 'rgba(242, 229, 215, 0.9)', margin: 0, cursor: 'pointer' }}>
-                  Use repeated texture <span style={{ opacity: 0.6, fontSize: '0.85rem', marginLeft: '6px' }}>(Display on all 4 sides)</span>
+                <label htmlFor="repeated-texture-checkbox" style={{ fontSize: '0.85rem', color: '#475569', margin: 0, cursor: 'pointer' }}>
+                  Use repeated texture <span style={{ opacity: 0.6, fontSize: '0.75rem', marginLeft: '6px' }}>(Display on all 4 sides)</span>
                 </label>
               </div>
             )}
@@ -222,7 +246,7 @@ function App() {
           <div className="settings-section">
             <div className="setting-row">
               {/* LEFT COLUMN: Shape & Depth */}
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem', flex: 1 }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.8rem', flex: 1 }}>
                 <div className="setting-group">
                   <label>Depth Shape</label>
                   <div className="segmented-control">
@@ -278,7 +302,7 @@ function App() {
               </div>
 
               {/* RIGHT COLUMN: Biased Scaling */}
-              <div style={{ display: 'flex', flexDirection: 'column', flex: 1, borderLeft: '1px solid rgba(242, 229, 215, 0.1)', paddingLeft: '1.5rem' }}>
+              <div style={{ display: 'flex', flexDirection: 'column', flex: 1, borderLeft: '1px solid #f1f5f9', paddingLeft: '1.5rem' }}>
                 <div className="setting-group" style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1rem', flex: 'none' }}>
                   <label style={{ margin: 0 }}>Biased Scaling</label>
                   <label className="switch-wrapper" style={{ transform: 'scale(0.8)' }}>
@@ -292,9 +316,9 @@ function App() {
                   </label>
                 </div>
 
-                <div style={{ display: 'flex', flexDirection: 'row', gap: '1.2rem' }}>
+                <div style={{ display: 'flex', flexDirection: 'row', gap: '0.6rem' }}>
                   {/* Sliders */}
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.8rem', flex: 1 }}>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem', flex: 1 }}>
                     <div className="setting-group small-ui">
                       <label>Top Scale: {biasedScaleTop.toFixed(2)}</label>
                       <input type="range" className="range-slider small-slider" min="0.0" max="3.0" step="0.1"
@@ -331,22 +355,22 @@ function App() {
             {/* Voxel Size */}
             <div className="setting-group full-width">
               <label>Voxel Size</label>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '15px', marginTop: '5px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '2px' }}>
                 <button
                   className="btn-small-rounded"
-                  style={{ padding: '4px 16px', fontSize: '1.2rem', minWidth: '40px' }}
+                  style={{ padding: '2px 8px', fontSize: '0.9rem', minWidth: '24px' }}
                   onClick={() => setVoxelScale(Math.max(1.0, voxelScale - 0.25))}
                 >-</button>
-                <span style={{ fontSize: '1.2rem', fontWeight: 'bold', minWidth: '50px', textAlign: 'center' }}>
+                <span style={{ fontSize: '0.8rem', fontWeight: 'bold', minWidth: '36px', textAlign: 'center', color: '#334155' }}>
                   {voxelScale.toFixed(2)}x
                 </span>
                 <button
                   className="btn-small-rounded"
-                  style={{ padding: '4px 16px', fontSize: '1.2rem', minWidth: '40px' }}
+                  style={{ padding: '2px 8px', fontSize: '0.9rem', minWidth: '24px' }}
                   onClick={() => setVoxelScale(Math.min(3.0, voxelScale + 0.25))}
                 >+</button>
               </div>
-              <p className="help-text" style={{ marginTop: '10px' }}>Global voxel scaling factor (1.0x to 3.0x)</p>
+              <p className="help-text" style={{ marginTop: '4px' }}>Global voxel scaling factor (1.0x to 3.0x)</p>
             </div>
           </div>
 

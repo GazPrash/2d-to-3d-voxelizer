@@ -28,7 +28,7 @@ export default function Viewer({ objContent, onBack, onGenerateAgain }: ViewerPr
     if (!mountRef.current) return;
 
     const scene = new THREE.Scene();
-    scene.background = new THREE.Color(0xfffaf3); 
+    scene.background = new THREE.Color(0xf0f4f8); 
 
     const width = mountRef.current.clientWidth;
     const height = mountRef.current.clientHeight;
@@ -132,22 +132,21 @@ export default function Viewer({ objContent, onBack, onGenerateAgain }: ViewerPr
   }, [objContent]);
 
   return (
-    <div className="app-container" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', paddingTop: '0px' }}>
+    <div className="app-container" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '1.5rem', padding: '2rem' }}>
       <div style={{
-        width: '90%', 
-        maxWidth: '800px', 
-        height: '60vh', 
-        borderRadius: '24px',
+        width: '100%', 
+        maxWidth: '900px', 
+        height: '65vh', 
+        borderRadius: '12px',
         overflow: 'hidden',
-        boxShadow: '0 10px 30px rgba(0,0,0,0.5)',
-        backgroundColor: '#fffaf3', 
-        border: '1px solid rgba(255, 255, 255, 0.1)',
-        marginBottom: '40px'
+        boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)',
+        backgroundColor: '#ffffff', 
+        border: '1px solid #d1d5db',
       }}>
         <div ref={mountRef} style={{ width: '100%', height: '100%' }} />
       </div>
 
-      <div style={{ width: '90%', maxWidth: '800px', display: 'flex', justifyContent: 'center', gap: '1rem', alignItems: 'center' }}>
+      <div style={{ width: '100%', maxWidth: '900px', display: 'flex', justifyContent: 'center', gap: '1rem', alignItems: 'center' }}>
         <button className="btn-small-rounded btn-accent" onClick={onBack} style={{ cursor: 'pointer' }}>
           ← Back to Generator
         </button>
