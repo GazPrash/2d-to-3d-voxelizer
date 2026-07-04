@@ -34,7 +34,7 @@ export default function Viewer({ objContent, onBack, onGenerateAgain }: ViewerPr
     const height = mountRef.current.clientHeight;
 
     const camera = new THREE.PerspectiveCamera(75, width / height, 0.1, 1000);
-    camera.position.set(0, 2, 5); // Angle slightly from top
+    camera.position.set(0, 2, 5);
     camera.lookAt(0, 0, 0);
 
     const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
@@ -53,6 +53,10 @@ export default function Viewer({ objContent, onBack, onGenerateAgain }: ViewerPr
     backLight.position.set(-10, 10, -10);
     scene.add(backLight);
 
+    const gridHelper = new THREE.GridHelper(10, 20, 0xaaaaaa, 0xe0e0e0);
+    gridHelper.position.y = -1.5;
+    scene.add(gridHelper);
+
     const controls = new OrbitControls(camera, renderer.domElement);
     controls.enableDamping = true;
 
@@ -67,10 +71,8 @@ export default function Viewer({ objContent, onBack, onGenerateAgain }: ViewerPr
       const box = new THREE.Box3().setFromObject(obj);
       const center = box.getCenter(new THREE.Vector3());
       
-      // Center the object properly
       obj.position.set(-center.x, -center.y, -center.z);
 
-      // Enable vertex colors from OBJ
       obj.traverse((child) => {
         if ((child as THREE.Mesh).isMesh) {
           const mesh = child as THREE.Mesh;
@@ -98,14 +100,7 @@ export default function Viewer({ objContent, onBack, onGenerateAgain }: ViewerPr
     let animationId: number;
     const animate = () => {
       animationId = requestAnimationFrame(animate);
-      
-      if (loadedObjectGroup) {
-        // Stop spinning the model
-        // loadedObjectGroup.rotation.y += 0.03;
-      }
-      
       controls.update();
-
       renderer.render(scene, camera);
     };
     animate();
@@ -166,6 +161,10 @@ export default function Viewer({ objContent, onBack, onGenerateAgain }: ViewerPr
         >
           Save Model As
         </button>
+      </div>
+
+      <div style={{ position: 'absolute', bottom: '1rem', fontSize: '0.75rem', color: '#94a3b8' }}>
+        made with ♥  by GazPrash
       </div>
     </div>
   );
