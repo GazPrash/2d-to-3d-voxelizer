@@ -7,9 +7,20 @@ import (
 	"pix2dTo3dApp/backend/logging"
 )
 
+/*
+	The aim of this service is to take an input image, user settings, and a 3d depth matrix
+	and then prepare a 3D obj model out of it based on the user chosen settings
+*/
 
+const (
+	spatialPrimeX = 73856093
+	spatialPrimeY = 19349669
+	spatialPrimeZ = 83492791
+)
 
-// helper to write a face to the .obj file, returns the updated; vertex index
+// helper to write a face to the .obj file;
+// caller must provide the current vertexIndex, we dont keep a global track
+// func returns the vidx, upto which the vertex has been updated + 1, caller must recv this to progress
 func writeFaceToObj(objFile *os.File, settings Settings, vIdx int, v1, v2, v3, v4 [3]float64, col RGB) int {
 
 	z1 := v1[2] * settings.DepthScale
@@ -17,7 +28,7 @@ func writeFaceToObj(objFile *os.File, settings Settings, vIdx int, v1, v2, v3, v
 	z3 := v3[2] * settings.DepthScale
 	z4 := v4[2] * settings.DepthScale
 
-	// write 4 vertices with vertex colors (supported by Blender)
+	// 4 vertices .obj format
 	fmt.Fprintf(objFile, "v %.3f %.3f %.3f %.3f %.3f %.3f\n", v1[0], v1[1], z1, col.r, col.g, col.b)
 	fmt.Fprintf(objFile, "v %.3f %.3f %.3f %.3f %.3f %.3f\n", v2[0], v2[1], z2, col.r, col.g, col.b)
 	fmt.Fprintf(objFile, "v %.3f %.3f %.3f %.3f %.3f %.3f\n", v3[0], v3[1], z3, col.r, col.g, col.b)
@@ -56,7 +67,6 @@ func writeVoxels(voxels *map[Vector3]Voxel, settings Settings, outFile *string) 
 
 			dx, dy, dz := float64(d.x), float64(d.y), float64(d.z)
 			cx, cy, cz := x+dx*0.5, y+dy*0.5, z+dz*0.5
-
 			var ux, uy, uz, vx, vy, vz float64
 			switch {
 			case d.x != 0:
@@ -68,15 +78,12 @@ func writeVoxels(voxels *map[Vector3]Voxel, settings Settings, outFile *string) 
 			}
 
 			var faceColor RGB
-			if col.IsQuad {
-				if d.x == -1 {
-					faceColor = col.LeftColor
-				} else if d.x == 1 {
-					faceColor = col.RightColor
-				} else {
-					faceColor = col.Color
-				}
-			} else {
+			switch {
+			case col.IsQuad && d.x == -1:
+				faceColor = col.LeftColor
+			case col.IsQuad && d.x == 1:
+				faceColor = col.RightColor
+			default:
 				faceColor = col.Color
 			}
 
@@ -106,7 +113,7 @@ func computeAverageColor(img InputImage) RGB {
 		for j := range img.height {
 			r, g, b, a := img.img.At(i, j).RGBA()
 			if a > 0 {
-				lin := unpremultiplyRGB(r, g, b, a, img.settings)
+				lin := unpremultiplyRGB(r, g, b, a)
 				sumR += lin.r
 				sumG += lin.g
 				sumB += lin.b
@@ -137,10 +144,10 @@ func getFrontBackColors(img InputImage, i, j int) (colFront, colBack RGB, aF, aB
 	}
 
 	if aF > 0 {
-		colFront = unpremultiplyRGB(rF, gF, bF, aF, img.settings)
+		colFront = unpremultiplyRGB(rF, gF, bF, aF)
 	}
 	if aB > 0 {
-		colBack = unpremultiplyRGB(rB, gB, bB, aB, img.settings)
+		colBack = unpremultiplyRGB(rB, gB, bB, aB)
 	}
 	return
 }
@@ -163,15 +170,21 @@ func getSideColors(img InputImage, z, d, j int) (left, right RGB, aL, aR uint32)
 		rR, gR, bR, aR = img.img.At(uRight, j).RGBA()
 	}
 
-	left = unpremultiplyRGB(rL, gL, bL, aL, img.settings)
-	right = unpremultiplyRGB(rR, gR, bR, aR, img.settings)
+	left = unpremultiplyRGB(rL, gL, bL, aL)
+	right = unpremultiplyRGB(rR, gR, bR, aR)
 	return left, right, aL, aR
+}
+
+// helper function for spatial hashing
+func spatialHash3D(x, y, z int) float64 {
+	h := uint32(x*spatialPrimeX) ^ uint32(y*spatialPrimeY) ^ uint32(z*spatialPrimeZ)
+	return float64(h%1000) / 1000.0
 }
 
 func populateVoxelsColumn(voxels *map[Vector3]Voxel, img InputImage, i, j, jj, d, edgeDistX int, colFront, colBack RGB, aF, aB uint32, avgColor RGB) {
 
-	// For non-flat shapes, trim the depth at the silhouette edge using a
-	// circular profile so the side view is rounded instead of a flat wall.
+	// for non-flat shapes, trim the depth at the silhouette edge using a
+	// circular profile so the side view is rounded instead of a flat wall;
 	// edgeDistX = horizontal distance to nearest transparent pixel.
 	maxZ := d
 	if img.settings.Shape != "flat" && d > 0 && edgeDistX < d {
@@ -181,21 +194,27 @@ func populateVoxelsColumn(voxels *map[Vector3]Voxel, img InputImage, i, j, jj, d
 
 	for z := -maxZ; z <= maxZ; z++ {
 
-		// At the silhouette edge, randomly skip voxels at certain
+		// at the silhouette edge, randomly skip voxels at certain
 		// z-levels so that different depths expose different x-positions.
-		// This creates organic stairstepping when viewed from the side.
-		if img.settings.Shape != "flat" && img.mode != QUAD && edgeDistX <= 3 && edgeDistX > 0 {
-			h := (uint32(i*73856093) ^ uint32(j*19349669) ^ uint32((z+maxZ+1)*83492791)) % 1000
-			var threshold uint32
+		// this is basically done to create an organic and natural voxelization of the
+		// side borders, so it doesn't look like an inflated sandwich lol
+		if img.settings.Shape != "flat" && img.mode != QUAD && edgeDistX > 0 && edgeDistX <= 3 {
+			skipProb := 0.0
 			switch edgeDistX {
 			case 1:
-				threshold = 250 // 25% skip
+				skipProb = 0.25 // 25% skip
 			case 2:
-				threshold = 100 // 10% skip
+				skipProb = 0.10 // 10% skip
 			case 3:
-				threshold = 50 // 5% skip
+				skipProb = 0.05 // 5% skip
 			}
-			if h < threshold {
+			/*
+				we just use a simple spatial hasher instead of stateful randomizer for speed and avoiding sequence issues
+				more info:
+				       [1] https://carmencincotti.com/2022-10-31/spatial-hash-maps-part-one/
+							 [2] https://en.wikipedia.org/wiki/Geometric_hashing
+			*/
+			if spatialHash3D(i, j, z+maxZ+1) < skipProb {
 				continue
 			}
 		}
@@ -203,16 +222,15 @@ func populateVoxelsColumn(voxels *map[Vector3]Voxel, img InputImage, i, j, jj, d
 		var v Voxel
 		v.IsQuad = true
 
-		// Front/back color based on depth sign
 		if z >= 0 {
 			v.Color = colFront
 		} else {
 			v.Color = colBack
 		}
 
-		// Side colors: QUAD mode uses dedicated side textures.
+		// side colors: QUAD mode uses dedicated side textures.
 		// SINGLE mode with Repeated uses the front texture mapped across the depth ONLY for flat shapes.
-		// Otherwise, extend the edge color.
+		// otherwise, extend the edge color.
 		var aL, aR uint32
 		if img.mode == QUAD || (img.mode == SINGLE && img.settings.Repeated && img.settings.Shape == "flat") {
 			v.LeftColor, v.RightColor, aL, aR = getSideColors(img, z, maxZ, jj)
@@ -224,14 +242,12 @@ func populateVoxelsColumn(voxels *map[Vector3]Voxel, img InputImage, i, j, jj, d
 		}
 
 		if img.mode == QUAD {
-			// In QUAD mode, the side sprites dictate the depth silhouette!
-			// If either side sprite is transparent at this depth, the voxel shouldn't exist.
+			// quad mode exception if either side sprite is transparent at this depth, the voxel shouldn't exist.
 			if aL == 0 || aR == 0 {
 				continue
 			}
 		}
 
-		// Preserve existing rear-override behavior for SINGLE mode
 		if img.mode == SINGLE {
 			v.OverrideRear = true
 			if img.settings.Repeated {
@@ -301,10 +317,9 @@ func generate3DModel(inpImage InputImage, depths *[][]int, outFile *string) erro
 		avgColor = computeAverageColor(inpImage)
 	}
 
-	// Pre-compute horizontal edge distances for side rounding.
 	edgeDistX := computeEdgeDistX(inpImage)
 
-	// VoxelScale controls global voxel size: scale down the image
+	// "VoxelScale" controls global voxel size: scale down the image
 	// by this factor. 1.0 means 1 pixel = 1 voxel.
 	scale := inpImage.settings.VoxelScale
 	if scale < 1.0 {
@@ -351,7 +366,7 @@ func generate3DModel(inpImage InputImage, depths *[][]int, outFile *string) erro
 	return nil
 }
 
-func unpremultiplyRGB(r, g, b, a uint32, settings Settings) RGB {
+func unpremultiplyRGB(r, g, b, a uint32) RGB {
 	if a == 0 {
 		return RGB{}
 	}

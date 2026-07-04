@@ -17,10 +17,10 @@ const (
 )
 
 type Voxel struct {
-	Color      RGB // Base color (Front/Back)
-	LeftColor  RGB // Color for the left face
-	RightColor   RGB // Color for the right face
-	RearColor    RGB // Color for the rear face
+	Color        RGB
+	LeftColor    RGB
+	RightColor   RGB
+	RearColor    RGB
 	IsQuad       bool
 	OverrideRear bool
 }

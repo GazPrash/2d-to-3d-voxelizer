@@ -36,11 +36,15 @@ func parseImage(base46Str string, settings Settings) (*InputImage, error) {
 		width = width / 4
 		settings.Shape = "flat"
 		settings.FlatDepth = float64(width) / 2.0
+
 		logging.INFO("Mode: QUAD [Left, Front, Right, Back]\n")
+
 	} else if settings.Layout == "dual" || (settings.Layout == "auto" && width >= height*2-4) {
 		mode = DUAL
 		width = width / 2
+
 		logging.INFO("Mode: DUAL [Side-by-side for front and back respectively]\n")
+
 	} else {
 		logging.INFO("Mode: SINGLE [Mirroring front texture to the back]\n")
 	}
@@ -70,20 +74,23 @@ func DepthComputation(inpImg InputImage) *[][]int {
 		grid[i] = make([]float64, height)
 		for j := range height {
 			var aF, aB uint32
-			if inpImg.mode == QUAD {
+			switch inpImg.mode {
+			case QUAD:
 				_, _, _, aF = inpImg.img.At(i+width, j).RGBA()
 				_, _, _, aB = inpImg.img.At(i+width*3, j).RGBA()
-			} else if inpImg.mode == DUAL {
+			case DUAL:
 				_, _, _, aF = inpImg.img.At(i, j).RGBA()
 				_, _, _, aB = inpImg.img.At(i+width, j).RGBA()
-			} else {
+			default:
 				_, _, _, aF = inpImg.img.At(i, j).RGBA()
 				aB = 0
 			}
 
 			if aF == 0 && aB == 0 {
-				grid[i][j] = 0 // Transparent
+				// these are for transparent pixels, they will become holes/empty spaces in the resultant model ;)
+				grid[i][j] = 0
 			} else {
+				// solid pixels
 				grid[i][j] = Inf
 			}
 		}
@@ -117,6 +124,20 @@ func EuclideanDistanceTransform1D(vector []float64, Inf float64) []float64 {
 
 	// index of the active parabola
 	k := 0
+	/*
+		The use of parabolas in EuclideanDistanceTransform1D comes from
+		the mathematical algorithm devised by Felzenszwalb and Huttenlocher.
+
+		1. Distance as a Quadratic Function
+		In 1D, the squared Euclidean distance between two points; repr as:
+		     d(q) = (q-p)^2
+
+		for the transform we need to find D(q) for every pooint p (p repr a pixel here basically), where;
+		D(q) = min_p((q - p) ^ 2 + f(p0)) ; where f(p0) is boundary values for the curve
+		     i.e p = 0 for transparent pixels & p = Inf, for solid pixels
+
+		d(q) repr a parabola, opening upwards, centered at p; and D(q) repr the lover envelope that we need for the E1DT
+	*/
 
 	intersections := make([]float64, n+1)
 	intersections[0] = -Inf - 1
@@ -157,7 +178,7 @@ func fattenImage(grid *[][]float64, width int, height int, Inf float64, imgSetti
 		distances[i] = make([]int, height)
 		for j := range height {
 			if (*grid)[i][j] == 0 {
-				continue // Transparent
+				continue
 			}
 
 			if imgSettings.Shape == "flat" {
@@ -167,7 +188,8 @@ func fattenImage(grid *[][]float64, width int, height int, Inf float64, imgSetti
 
 			minDist := math.Sqrt((*grid)[i][j])
 
-			// If it's a completely solid image, use distance to edge
+			// for non flat executions (non-repeated single, no-quad) i.e possible voxel generations, if it's a completely solid image,
+			// use distance to edge
 			if minDist >= infThreshold {
 				minDist = math.Min(float64(min(i, width-i-1)), float64(min(j, height-j-1)))
 			}
@@ -175,7 +197,7 @@ func fattenImage(grid *[][]float64, width int, height int, Inf float64, imgSetti
 				continue
 			}
 
-			// Apply rounded capsule-like profile to the base distance
+			// transforming the base of the voxel to a rounded/capsule shape here
 			r := math.Max(20.0, float64(min(width, height))*0.1)
 			if minDist < r {
 				minDist = math.Sqrt(minDist * (2*r - minDist))
@@ -183,7 +205,7 @@ func fattenImage(grid *[][]float64, width int, height int, Inf float64, imgSetti
 				minDist = r
 			}
 
-			// vertical bias
+			// add dist bias for voxel randomization
 			normalizedY := float64(j) / float64(height)
 			if imgSettings.BiasedScalingEnabled {
 				minDist *= customBias(normalizedY, imgSettings)
@@ -191,7 +213,7 @@ func fattenImage(grid *[][]float64, width int, height int, Inf float64, imgSetti
 				minDist *= defaultBias(normalizedY)
 			}
 
-			// organic Random Noise: ±10% variation so it's not perfectly smooth
+			// organic Random Noise with a ±10% variation so it's not perfectly smooth
 			minDist += (rand.Float64() - 0.5) * 0.2 * minDist
 
 			distances[i][j] = int(math.Round(minDist))
@@ -200,7 +222,6 @@ func fattenImage(grid *[][]float64, width int, height int, Inf float64, imgSetti
 	return &distances
 }
 
-// customBias returns a vertical depth multiplier using interpolated user multipliers
 func customBias(normalizedY float64, settings Settings) float64 {
 	if normalizedY < 0.5 {
 		t := normalizedY / 0.5
@@ -218,6 +239,6 @@ func defaultBias(normalizedY float64) float64 {
 	// Symmetric: thickest at the centre (y=0.5), tapering equally toward
 	// both the top and bottom edges.
 	// Range: 0.55 at the edges → 1.0 at the centre.
-	t := 2.0*(normalizedY-0.5)  // −1 … +1
-	return 0.55 + 0.45*(1.0-t*t) // parabolic bell
+	t := 2.0 * (normalizedY - 0.5) // −1 … +1
+	return 0.55 + 0.45*(1.0-t*t)   // parabolic bell
 }
