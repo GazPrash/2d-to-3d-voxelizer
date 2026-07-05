@@ -1,6 +1,6 @@
 # README
 <img width="512" height="512" alt="appicon" src="https://github.com/user-attachments/assets/c214549a-0d27-4526-8d9a-2558444c5761" />
-<img width="756" height="756" alt="frontpageart" src="https://github.com/user-attachments/assets/e4b6798f-522a-41e4-ba74-570ce17fe471" />
+<img width="822" height="862" alt="image" src="https://github.com/user-attachments/assets/ccd86615-77ab-40f0-9e9f-733d0f8a50ba" />
 
 
 This app can be used to generate 3D voxel art based on a 2d pixel art sprite, or generate a fully 3d object
