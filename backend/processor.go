@@ -2,6 +2,7 @@ package backend
 
 import (
 	"bytes"
+	"context"
 	"encoding/base64"
 	"fmt"
 	"image"
@@ -11,6 +12,7 @@ import (
 	"math"
 	"math/rand"
 	"pix2dTo3dApp/backend/logging"
+	"sync"
 )
 
 func parseImage(base46Str string, settings Settings) (*InputImage, error) {
@@ -20,7 +22,6 @@ func parseImage(base46Str string, settings Settings) (*InputImage, error) {
 	}
 
 	img, _, err := image.Decode(bytes.NewReader(data))
-	println(img)
 	if err != nil {
 		log.Printf("Error decoding image: %v\n", err)
 		return nil, err
@@ -62,7 +63,7 @@ func parseImage(base46Str string, settings Settings) (*InputImage, error) {
 	return &inputImg, nil
 }
 
-func DepthComputation(inpImg InputImage) *[][]int {
+func DepthComputation(ctx context.Context, inpImg InputImage) *[][]int {
 	width := inpImg.width
 	height := inpImg.height
 	// a finite infinity so that we are safe from overflow in EDTF, populated acc to the image
@@ -96,23 +97,92 @@ func DepthComputation(inpImg InputImage) *[][]int {
 		}
 	}
 
+	var wg sync.WaitGroup
+	var cancelled bool
+	var mu sync.Mutex
+
+	// now we need to do the depth computation here by finding D(q)
+	// based on the formula discussed in EuclideanDistanceTransform1D notes.
+	// We do it concurrently for columns first and ten rows, and also check
+	// if the process is too long and if the user has cancelled in between
 	for i := range width {
-		grid[i] = EuclideanDistanceTransform1D(grid[i], Inf)
+		wg.Add(1)
+		go processColumnEDT(ctx, i, grid, Inf, &wg, &mu, &cancelled)
 	}
 
-	row := make([]float64, width)
+	/*
+		if user accidently inputs a large image, then this process would be pretty slow
+		even with multithreading, so cancelled check is necessary if triggered in between the job
+		also WARN: cannot do both row and col EDTs in parallel obv, both groups must be done sequentially
+	*/
+	wg.Wait()
+	if cancelled {
+		return nil
+	}
+
+	rowEDTs := make([][]float64, height)
+	for j := range height {
+		wg.Add(1)
+		go processRowEDT(ctx, j, width, grid, rowEDTs, Inf, &wg, &mu, &cancelled)
+	}
+
+	wg.Wait()
+	if cancelled {
+		return nil
+	}
+
 	for j := range height {
 		for i := range width {
-			row[i] = grid[i][j]
-		}
-		edtRow := EuclideanDistanceTransform1D(row, Inf)
-		for i := range width {
-			grid[i][j] = edtRow[i]
+			grid[i][j] = rowEDTs[j][i]
 		}
 	}
 
-	depths := fattenImage(&grid, width, height, Inf, inpImg.settings)
+	depths := fattenImage(ctx, &grid, width, height, Inf, inpImg.settings)
 	return depths
+}
+
+func processColumnEDT(
+	ctx context.Context,
+	col int,
+	grid [][]float64,
+	Inf float64,
+	wg *sync.WaitGroup,
+	mu *sync.Mutex,
+	cancelled *bool,
+) {
+	defer wg.Done()
+	if ctx.Err() != nil {
+		mu.Lock()
+		*cancelled = true
+		mu.Unlock()
+		return
+	}
+	grid[col] = EuclideanDistanceTransform1D(grid[col], Inf)
+}
+
+func processRowEDT(
+	ctx context.Context,
+	r int,
+	width int,
+	grid [][]float64,
+	rowEDTs [][]float64,
+	Inf float64,
+	wg *sync.WaitGroup,
+	mu *sync.Mutex,
+	cancelled *bool,
+) {
+	defer wg.Done()
+	if ctx.Err() != nil {
+		mu.Lock()
+		*cancelled = true
+		mu.Unlock()
+		return
+	}
+	row := make([]float64, width)
+	for i := range width {
+		row[i] = grid[i][r]
+	}
+	rowEDTs[r] = EuclideanDistanceTransform1D(row, Inf)
 }
 
 func EuclideanDistanceTransform1D(vector []float64, Inf float64) []float64 {
@@ -170,56 +240,90 @@ func EuclideanDistanceTransform1D(vector []float64, Inf float64) []float64 {
 }
 
 // populates the z-axis coordinates for the image based on the shape settings & chosen type (humanoid/static obj)
-func fattenImage(grid *[][]float64, width int, height int, Inf float64, imgSettings Settings) *[][]int {
+func fattenImage(ctx context.Context, grid *[][]float64, width int, height int, Inf float64, imgSettings Settings) *[][]int {
 	distances := make([][]int, width)
-	infThreshold := math.Sqrt(Inf) - 1
-
 	for i := range width {
 		distances[i] = make([]int, height)
-		for j := range height {
-			if (*grid)[i][j] == 0 {
-				continue
-			}
+	}
 
-			if imgSettings.Shape == "flat" {
-				distances[i][j] = int(math.Round(imgSettings.FlatDepth))
-				continue
-			}
+	var wg sync.WaitGroup
+	var cancelled bool
+	var mu sync.Mutex
 
-			minDist := math.Sqrt((*grid)[i][j])
-
-			// for non flat executions (non-repeated single, no-quad) i.e possible voxel generations, if it's a completely solid image,
-			// use distance to edge
-			if minDist >= infThreshold {
-				minDist = math.Min(float64(min(i, width-i-1)), float64(min(j, height-j-1)))
-			}
-			if minDist <= 0 {
-				continue
-			}
-
-			// transforming the base of the voxel to a rounded/capsule shape here
-			r := math.Max(20.0, float64(min(width, height))*0.1)
-			if minDist < r {
-				minDist = math.Sqrt(minDist * (2*r - minDist))
-			} else {
-				minDist = r
-			}
-
-			// add dist bias for voxel randomization
-			normalizedY := float64(j) / float64(height)
-			if imgSettings.BiasedScalingEnabled {
-				minDist *= customBias(normalizedY, imgSettings)
-			} else {
-				minDist *= defaultBias(normalizedY)
-			}
-
-			// organic Random Noise with a ±10% variation so it's not perfectly smooth
-			minDist += (rand.Float64() - 0.5) * 0.2 * minDist
-
-			distances[i][j] = int(math.Round(minDist))
-		}
+	for i := range width {
+		wg.Add(1)
+		go processFattenColumn(ctx, i, width, height, *grid, distances, Inf, imgSettings, &wg, &mu, &cancelled)
+	}
+	wg.Wait()
+	if cancelled {
+		return nil
 	}
 	return &distances
+}
+
+func processFattenColumn(
+	ctx context.Context,
+	col, width, height int,
+	grid [][]float64,
+	distances [][]int,
+	Inf float64,
+	imgSettings Settings,
+	wg *sync.WaitGroup,
+	mu *sync.Mutex,
+	cancelled *bool,
+) {
+	defer wg.Done()
+	if ctx.Err() != nil {
+		mu.Lock()
+		*cancelled = true
+		mu.Unlock()
+		return
+	}
+
+	infThreshold := math.Sqrt(Inf) - 1
+
+	for j := range height {
+		if grid[col][j] == 0 {
+			continue
+		}
+
+		if imgSettings.Shape == "flat" {
+			distances[col][j] = int(math.Round(imgSettings.FlatDepth))
+			continue
+		}
+
+		minDist := math.Sqrt(grid[col][j])
+
+		// for non flat executions (non-repeated single, no-quad) i.e possible voxel generations, if it's a completely solid image,
+		// use distance to edge
+		if minDist >= infThreshold {
+			minDist = math.Min(float64(min(col, width-col-1)), float64(min(j, height-j-1)))
+		}
+		if minDist <= 0 {
+			continue
+		}
+
+		// transforming the base of the voxel to a rounded/capsule shape here
+		r := math.Max(20.0, float64(min(width, height))*0.1)
+		if minDist < r {
+			minDist = math.Sqrt(minDist * (2*r - minDist))
+		} else {
+			minDist = r
+		}
+
+		// add dist bias for voxel randomization
+		normalizedY := float64(j) / float64(height)
+		if imgSettings.BiasedScalingEnabled {
+			minDist *= customBias(normalizedY, imgSettings)
+		} else {
+			minDist *= defaultBias(normalizedY)
+		}
+
+		// organic Random Noise with a ±10% variation so it's not perfectly smooth
+		minDist += (rand.Float64() - 0.5) * 0.2 * minDist
+
+		distances[col][j] = int(math.Round(minDist))
+	}
 }
 
 func customBias(normalizedY float64, settings Settings) float64 {

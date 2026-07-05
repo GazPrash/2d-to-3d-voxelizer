@@ -5,7 +5,7 @@ import "image"
 type Vector3 struct{ x, y, z int }
 
 type RGB struct {
-	r, g, b float64
+	r, g, b uint8
 }
 
 type Mode int

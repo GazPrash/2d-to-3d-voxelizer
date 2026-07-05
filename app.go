@@ -6,12 +6,15 @@ import (
 	"os"
 	"path/filepath"
 	"pix2dTo3dApp/backend"
+	"sync"
 
 	"github.com/wailsapp/wails/v2/pkg/runtime"
 )
 
 type App struct {
-	ctx context.Context
+	ctx    context.Context
+	cancel context.CancelFunc
+	mu     sync.Mutex
 }
 
 type FrontendSettings struct {
@@ -35,6 +38,15 @@ func (a *App) startup(ctx context.Context) {
 	a.ctx = ctx
 }
 
+func (a *App) CancelProcessing() {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	if a.cancel != nil {
+		a.cancel()
+		a.cancel = nil
+	}
+}
+
 func (a *App) ProcessImage(base64ImageData string, frontendSettings FrontendSettings) (string, error) {
 	settings := backend.Settings{
 		Layout:               frontendSettings.Mode,
@@ -49,8 +61,25 @@ func (a *App) ProcessImage(base64ImageData string, frontendSettings FrontendSett
 		VoxelScale:           frontendSettings.VoxelScale,
 	}
 
+	a.mu.Lock()
+	if a.cancel != nil {
+		a.cancel()
+	}
+	var jobCtx context.Context
+	jobCtx, a.cancel = context.WithCancel(a.ctx)
+	a.mu.Unlock()
+
+	defer func() {
+		a.mu.Lock()
+		if a.cancel != nil {
+			a.cancel()
+			a.cancel = nil
+		}
+		a.mu.Unlock()
+	}()
+
 	tempFile := filepath.Join(os.TempDir(), "pix2d_out_temp.obj")
-	err := backend.ConvertTo3D(base64ImageData, settings, tempFile)
+	err := backend.ConvertTo3D(jobCtx, base64ImageData, settings, tempFile)
 	if err != nil {
 		log.Printf("Failed to convert the input file; Err: %v", err)
 		return "", err
