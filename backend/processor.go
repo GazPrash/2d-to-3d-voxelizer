@@ -12,7 +12,8 @@ import (
 	"math"
 	"math/rand"
 	"pix2dTo3dApp/backend/logging"
-	"sync"
+
+	"github.com/nfnt/resize"
 )
 
 func parseImage(base46Str string, settings Settings) (*InputImage, error) {
@@ -30,6 +31,15 @@ func parseImage(base46Str string, settings Settings) (*InputImage, error) {
 	bounds := img.Bounds()
 	width := bounds.Max.X
 	height := bounds.Max.Y
+
+	if width > MaxImageWidth || height > MaxImageHeight {
+		logging.INFO(fmt.Sprintf("Image is too large (%dx%d), resizing to fit within %dx%d...", width, height, MaxImageWidth, MaxImageHeight))
+
+		img = resize.Thumbnail(uint(MaxImageWidth), uint(MaxImageHeight), img, resize.Lanczos3)
+		bounds = img.Bounds()
+		width = bounds.Max.X
+		height = bounds.Max.Y
+	}
 
 	mode := SINGLE
 	if settings.Layout == "quad" || (settings.Layout == "auto" && width >= height*4-8) {
@@ -97,37 +107,45 @@ func DepthComputation(ctx context.Context, inpImg InputImage) *[][]int {
 		}
 	}
 
-	var wg sync.WaitGroup
-	var cancelled bool
-	var mu sync.Mutex
-
 	// now we need to do the depth computation here by finding D(q)
 	// based on the formula discussed in EuclideanDistanceTransform1D notes.
 	// We do it concurrently for columns first and ten rows, and also check
 	// if the process is too long and if the user has cancelled in between
+	pool := NewWorkerPool(ctx, 0)
 	for i := range width {
-		wg.Add(1)
-		go processColumnEDT(ctx, i, grid, Inf, &wg, &mu, &cancelled)
+		col := i
+		pool.Submit(func() {
+			if ctx.Err() != nil {
+				return
+			}
+			grid[col] = EuclideanDistanceTransform1D(grid[col], Inf)
+		})
 	}
+	pool.Wait()
 
-	/*
-		if user accidently inputs a large image, then this process would be pretty slow
-		even with multithreading, so cancelled check is necessary if triggered in between the job
-		also WARN: cannot do both row and col EDTs in parallel obv, both groups must be done sequentially
-	*/
-	wg.Wait()
-	if cancelled {
+	// WARN: cannot do both row and col EDTs in parallel obv, both groups must be done sequentially
+	if ctx.Err() != nil {
 		return nil
 	}
 
 	rowEDTs := make([][]float64, height)
+	pool = NewWorkerPool(ctx, 0)
 	for j := range height {
-		wg.Add(1)
-		go processRowEDT(ctx, j, width, grid, rowEDTs, Inf, &wg, &mu, &cancelled)
+		row := j
+		pool.Submit(func() {
+			if ctx.Err() != nil {
+				return
+			}
+			rowSlice := make([]float64, width)
+			for i := range width {
+				rowSlice[i] = grid[i][row]
+			}
+			rowEDTs[row] = EuclideanDistanceTransform1D(rowSlice, Inf)
+		})
 	}
+	pool.Wait()
 
-	wg.Wait()
-	if cancelled {
+	if ctx.Err() != nil {
 		return nil
 	}
 
@@ -139,50 +157,6 @@ func DepthComputation(ctx context.Context, inpImg InputImage) *[][]int {
 
 	depths := fattenImage(ctx, &grid, width, height, Inf, inpImg.settings)
 	return depths
-}
-
-func processColumnEDT(
-	ctx context.Context,
-	col int,
-	grid [][]float64,
-	Inf float64,
-	wg *sync.WaitGroup,
-	mu *sync.Mutex,
-	cancelled *bool,
-) {
-	defer wg.Done()
-	if ctx.Err() != nil {
-		mu.Lock()
-		*cancelled = true
-		mu.Unlock()
-		return
-	}
-	grid[col] = EuclideanDistanceTransform1D(grid[col], Inf)
-}
-
-func processRowEDT(
-	ctx context.Context,
-	r int,
-	width int,
-	grid [][]float64,
-	rowEDTs [][]float64,
-	Inf float64,
-	wg *sync.WaitGroup,
-	mu *sync.Mutex,
-	cancelled *bool,
-) {
-	defer wg.Done()
-	if ctx.Err() != nil {
-		mu.Lock()
-		*cancelled = true
-		mu.Unlock()
-		return
-	}
-	row := make([]float64, width)
-	for i := range width {
-		row[i] = grid[i][r]
-	}
-	rowEDTs[r] = EuclideanDistanceTransform1D(row, Inf)
 }
 
 func EuclideanDistanceTransform1D(vector []float64, Inf float64) []float64 {
@@ -240,22 +214,29 @@ func EuclideanDistanceTransform1D(vector []float64, Inf float64) []float64 {
 }
 
 // populates the z-axis coordinates for the image based on the shape settings & chosen type (humanoid/static obj)
-func fattenImage(ctx context.Context, grid *[][]float64, width int, height int, Inf float64, imgSettings Settings) *[][]int {
+func fattenImage(
+	ctx context.Context,
+	grid *[][]float64,
+	width int,
+	height int,
+	Inf float64,
+	imgSettings Settings,
+) *[][]int {
 	distances := make([][]int, width)
 	for i := range width {
 		distances[i] = make([]int, height)
 	}
 
-	var wg sync.WaitGroup
-	var cancelled bool
-	var mu sync.Mutex
-
+	pool := NewWorkerPool(ctx, 0)
 	for i := range width {
-		wg.Add(1)
-		go processFattenColumn(ctx, i, width, height, *grid, distances, Inf, imgSettings, &wg, &mu, &cancelled)
+		col := i
+		pool.Submit(func() {
+			processFattenColumn(ctx, col, width, height, *grid, distances, Inf, imgSettings)
+		})
 	}
-	wg.Wait()
-	if cancelled {
+	pool.Wait()
+
+	if ctx.Err() != nil {
 		return nil
 	}
 	return &distances
@@ -268,21 +249,19 @@ func processFattenColumn(
 	distances [][]int,
 	Inf float64,
 	imgSettings Settings,
-	wg *sync.WaitGroup,
-	mu *sync.Mutex,
-	cancelled *bool,
 ) {
-	defer wg.Done()
 	if ctx.Err() != nil {
-		mu.Lock()
-		*cancelled = true
-		mu.Unlock()
 		return
 	}
 
 	infThreshold := math.Sqrt(Inf) - 1
 
 	for j := range height {
+		// periodic cancellation check inside inner loop
+		if j%64 == 0 && ctx.Err() != nil {
+			return
+		}
+
 		if grid[col][j] == 0 {
 			continue
 		}

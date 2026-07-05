@@ -3,6 +3,8 @@ package backend
 import (
 	"context"
 	"log"
+	"runtime"
+	"runtime/debug"
 )
 
 func ConvertTo3D(ctx context.Context, base64Image string, settings Settings, outFile string) error {
@@ -24,9 +26,23 @@ func ConvertTo3D(ctx context.Context, base64Image string, settings Settings, out
 	}
 
 	err = generate3DModel(ctx, *inpImage, depths, &outFile)
+
+	inpImage = nil
+	depths = nil
+	_ = inpImage
+	_ = depths
+
 	if err != nil {
 		log.Printf("Failed to generate the model; Err: {%v}", err)
-		return err
 	}
-	return nil
+
+	runtime.GC()
+	debug.FreeOSMemory()
+
+	return err
+}
+
+func ForceGC() {
+	runtime.GC()
+	debug.FreeOSMemory()
 }
