@@ -4,3 +4,4 @@ frontend/dist
 .DS_Store
 *.obj
 *.app
+*.exe

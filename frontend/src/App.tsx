@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, DragEvent, ChangeEvent } from 'react';
 import './App.css';
-import { ProcessImage } from '../wailsjs/go/main/App';
+import { ProcessImage, CancelProcessing } from '../wailsjs/go/main/App';
 import Viewer from './Viewer';
 function App() {
   const [isDragging, setIsDragging] = useState(false);
@@ -145,7 +145,10 @@ function App() {
         {showCancel && (
           <button 
             className="btn-small-rounded btn-save" 
-            onClick={() => setViewState('main')}
+            onClick={() => {
+              CancelProcessing();
+              setViewState('main');
+            }}
           >
             Cancel Generation
           </button>
