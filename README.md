@@ -1,5 +1,5 @@
 # README
-<img width="512" height="512" alt="appicon" src="https://github.com/user-attachments/assets/c214549a-0d27-4526-8d9a-2558444c5761" />
+<img width="57" height="57" alt="Sprite-0009" src="https://github.com/user-attachments/assets/5775696b-49bb-498f-a8f1-c41f0e063308" />
 <img width="822" height="862" alt="image" src="https://github.com/user-attachments/assets/ccd86615-77ab-40f0-9e9f-733d0f8a50ba" />
 
 
