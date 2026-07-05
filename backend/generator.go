@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"math"
 	"os"
-	"sync"
 	"pix2dTo3dApp/backend/logging"
 )
 
@@ -15,44 +14,44 @@ import (
 	and then prepare a 3D obj model out of it based on the user chosen settings
 */
 
-const (
-	spatialPrimeX = 73856093
-	spatialPrimeY = 19349669
-	spatialPrimeZ = 83492791
-)
-
-const numShards = 256
-
 type VoxelMap struct {
-	shards [numShards]struct {
-		sync.RWMutex
-		m map[Vector3]Voxel
-	}
+	shards []voxelShard
 }
 
-func NewVoxelMap() *VoxelMap {
-	vm := &VoxelMap{}
-	for i := range numShards {
-		vm.shards[i].m = make(map[Vector3]Voxel)
+type voxelShard struct {
+	m map[Vector3]Voxel
+}
+
+func NewVoxelMap(width int) *VoxelMap {
+	vm := &VoxelMap{
+		shards: make([]voxelShard, width),
+	}
+
+	for i := range width {
+		vm.shards[i].m = make(map[Vector3]Voxel, 1024)
 	}
 	return vm
 }
 
 func (vm *VoxelMap) Get(v Vector3) (Voxel, bool) {
-	h := uint32(v.x*spatialPrimeX) ^ uint32(v.y*spatialPrimeY) ^ uint32(v.z*spatialPrimeZ)
-	idx := h % numShards
-	vm.shards[idx].RLock()
-	val, ok := vm.shards[idx].m[v]
-	vm.shards[idx].RUnlock()
+	if v.x < 0 || v.x >= len(vm.shards) {
+		return Voxel{}, false
+	}
+	val, ok := vm.shards[v.x].m[v]
 	return val, ok
 }
 
 func (vm *VoxelMap) Set(v Vector3, vox Voxel) {
-	h := uint32(v.x*spatialPrimeX) ^ uint32(v.y*spatialPrimeY) ^ uint32(v.z*spatialPrimeZ)
-	idx := h % numShards
-	vm.shards[idx].Lock()
-	vm.shards[idx].m[v] = vox
-	vm.shards[idx].Unlock()
+	if v.x >= 0 && v.x < len(vm.shards) {
+		vm.shards[v.x].m[v] = vox
+	}
+}
+
+// Clear drops all voxel data so the GC can reclaim the memory.
+func (vm *VoxelMap) Clear() {
+	for i := range len(vm.shards) {
+		vm.shards[i].m = nil
+	}
 }
 
 // helper to write a face to the .obj file;
@@ -89,7 +88,8 @@ func writeVoxels(ctx context.Context, voxels *VoxelMap, settings Settings, outFi
 
 	defer objFile.Close()
 
-	buf := bufio.NewWriter(objFile)
+	// 1MB buffer
+	buf := bufio.NewWriterSize(objFile, 1024*1024)
 	defer buf.Flush()
 
 	vIdx := 1
@@ -101,11 +101,18 @@ func writeVoxels(ctx context.Context, voxels *VoxelMap, settings Settings, outFi
 		{0, 0, 1}, {0, 0, -1},
 	}
 
-	for i := range numShards {
+	voxelCount := 0
+	for i := range len(voxels.shards) {
 		if ctx.Err() != nil {
 			return ctx.Err()
 		}
 		for pos, col := range voxels.shards[i].m {
+
+			voxelCount++
+			if voxelCount%4096 == 0 && ctx.Err() != nil {
+				return ctx.Err()
+			}
+
 			x, y, z := float64(pos.x), float64(pos.y), float64(pos.z)
 
 			for _, d := range dirs {
@@ -113,43 +120,43 @@ func writeVoxels(ctx context.Context, voxels *VoxelMap, settings Settings, outFi
 					continue
 				}
 
-			dx, dy, dz := float64(d.x), float64(d.y), float64(d.z)
-			cx, cy, cz := x+dx*0.5, y+dy*0.5, z+dz*0.5
-			var ux, uy, uz, vx, vy, vz float64
-			switch {
-			case d.x != 0:
-				uy, vz = 0.5, dx*0.5
-			case d.y != 0:
-				uz, vx = 0.5, dy*0.5
-			case d.z != 0:
-				ux, vy = 0.5, dz*0.5
-			}
+				dx, dy, dz := float64(d.x), float64(d.y), float64(d.z)
+				cx, cy, cz := x+dx*0.5, y+dy*0.5, z+dz*0.5
+				var ux, uy, uz, vx, vy, vz float64
+				switch {
+				case d.x != 0:
+					uy, vz = 0.5, dx*0.5
+				case d.y != 0:
+					uz, vx = 0.5, dy*0.5
+				case d.z != 0:
+					ux, vy = 0.5, dz*0.5
+				}
 
-			var faceColor RGB
-			switch {
-			case col.IsQuad && d.x == -1:
-				faceColor = col.LeftColor
-			case col.IsQuad && d.x == 1:
-				faceColor = col.RightColor
-			default:
-				faceColor = col.Color
-			}
+				var faceColor RGB
+				switch {
+				case col.IsQuad && d.x == -1:
+					faceColor = col.LeftColor
+				case col.IsQuad && d.x == 1:
+					faceColor = col.RightColor
+				default:
+					faceColor = col.Color
+				}
 
-			if col.OverrideRear && d.z == -1 {
-				faceColor = col.RearColor
-			}
+				if col.OverrideRear && d.z == -1 {
+					faceColor = col.RearColor
+				}
 
-			vIdx = writeFaceToObj(
-				buf,
-				settings,
-				vIdx,
-				[3]float64{cx - ux + vx, cy - uy + vy, cz - uz + vz},
-				[3]float64{cx - ux - vx, cy - uy - vy, cz - uz - vz},
-				[3]float64{cx + ux - vx, cy + uy - vy, cz + uz - vz},
-				[3]float64{cx + ux + vx, cy + uy + vy, cz + uz + vz},
-				faceColor,
-			)
-		}
+				vIdx = writeFaceToObj(
+					buf,
+					settings,
+					vIdx,
+					[3]float64{cx - ux + vx, cy - uy + vy, cz - uz + vz},
+					[3]float64{cx - ux - vx, cy - uy - vy, cz - uz - vz},
+					[3]float64{cx + ux - vx, cy + uy - vy, cz + uz - vz},
+					[3]float64{cx + ux + vx, cy + uy + vy, cz + uz + vz},
+					faceColor,
+				)
+			}
 		}
 	}
 
@@ -230,11 +237,12 @@ func getSideColors(img InputImage, z, d, j int) (left, right RGB, aL, aR uint32)
 
 // helper function for spatial hashing
 func spatialHash3D(x, y, z int) float64 {
-	h := uint32(x*spatialPrimeX) ^ uint32(y*spatialPrimeY) ^ uint32(z*spatialPrimeZ)
+	h := uint32(x*SpatialPrimeX) ^ uint32(y*SpatialPrimeY) ^ uint32(z*SpatialPrimeZ)
 	return float64(h%1000) / 1000.0
 }
 
 func populateVoxelsColumn(
+	ctx context.Context,
 	voxels *VoxelMap,
 	img InputImage,
 	i, j, jj, d, edgeDistX int,
@@ -254,6 +262,10 @@ func populateVoxelsColumn(
 
 	for z := -maxZ; z <= maxZ; z++ {
 
+		if (z+maxZ)%64 == 0 && ctx.Err() != nil {
+			return
+		}
+
 		// at the silhouette edge, randomly skip voxels at certain
 		// z-levels so that different depths expose different x-positions.
 		// this is basically done to create an organic and natural voxelization of the
@@ -272,7 +284,7 @@ func populateVoxelsColumn(
 				we just use a simple spatial hasher instead of stateful randomizer for speed and avoiding sequence issues
 				more info:
 				       [1] https://carmencincotti.com/2022-10-31/spatial-hash-maps-part-one/
-							 [2] https://en.wikipedia.org/wiki/Geometric_hashing
+						 [2] https://en.wikipedia.org/wiki/Geometric_hashing
 			*/
 			if spatialHash3D(i, j, z+maxZ+1) < skipProb {
 				continue
@@ -370,8 +382,6 @@ func computeEdgeDistX(img InputImage) [][]int {
 }
 
 func generate3DModel(ctx context.Context, inpImage InputImage, depths *[][]int, outFile *string) error {
-	voxels := NewVoxelMap()
-
 	var avgColor RGB
 	if inpImage.mode == SINGLE && !inpImage.settings.Repeated {
 		avgColor = computeAverageColor(inpImage)
@@ -388,17 +398,20 @@ func generate3DModel(ctx context.Context, inpImage InputImage, depths *[][]int, 
 
 	outW := int(math.Ceil(float64(inpImage.width) / scale))
 	outH := int(math.Ceil(float64(inpImage.height) / scale))
-	var wg sync.WaitGroup
-	var cancelled bool
-	var mu sync.Mutex
 
+	voxels := NewVoxelMap(outW)
+	defer voxels.Clear()
+
+	pool := NewWorkerPool(ctx, 0)
 	for oi := 0; oi < outW; oi++ {
-		wg.Add(1)
-		go processGeneratorColumn(ctx, oi, outH, scale, inpImage, *depths, edgeDistX, avgColor, voxels, &wg, &mu, &cancelled)
+		colOI := oi
+		pool.Submit(func() {
+			processGeneratorColumn(ctx, colOI, outH, scale, inpImage, *depths, edgeDistX, avgColor, voxels)
+		})
 	}
-	wg.Wait()
+	pool.Wait()
 
-	if cancelled {
+	if ctx.Err() != nil {
 		return ctx.Err()
 	}
 
@@ -423,18 +436,13 @@ func processGeneratorColumn(
 	edgeDistX [][]int,
 	avgColor RGB,
 	voxels *VoxelMap,
-	wg *sync.WaitGroup,
-	mu *sync.Mutex,
-	cancelled *bool,
 ) {
-	defer wg.Done()
-	if ctx.Err() != nil {
-		mu.Lock()
-		*cancelled = true
-		mu.Unlock()
-		return
-	}
 	for oj := 0; oj < outH; oj++ {
+		// periodic cancellation check inside inner loop
+		if oj%64 == 0 && ctx.Err() != nil {
+			return
+		}
+
 		ii := int(float64(colOI) * scale)
 		jj := int(float64(oj) * scale)
 
@@ -454,7 +462,7 @@ func processGeneratorColumn(
 		d := max(1, int(math.Round(float64(depths[ii][jj])/scale)))
 		edx := max(1, int(math.Round(float64(edgeDistX[ii][jj])/scale)))
 
-		populateVoxelsColumn(voxels, inpImage, colOI, oj, jj, d, edx, colFront, colBack, aF, aB, avgColor)
+		populateVoxelsColumn(ctx, voxels, inpImage, colOI, oj, jj, d, edx, colFront, colBack, aF, aB, avgColor)
 	}
 }
 
