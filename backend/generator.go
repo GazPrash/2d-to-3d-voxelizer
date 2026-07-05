@@ -283,8 +283,8 @@ func populateVoxelsColumn(
 			/*
 				we just use a simple spatial hasher instead of stateful randomizer for speed and avoiding sequence issues
 				more info:
-				       [1] https://carmencincotti.com/2022-10-31/spatial-hash-maps-part-one/
-						 [2] https://en.wikipedia.org/wiki/Geometric_hashing
+						[1] https://carmencincotti.com/2022-10-31/spatial-hash-maps-part-one/
+						[2] https://en.wikipedia.org/wiki/Geometric_hashing
 			*/
 			if spatialHash3D(i, j, z+maxZ+1) < skipProb {
 				continue
