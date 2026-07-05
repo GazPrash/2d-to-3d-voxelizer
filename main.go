@@ -2,6 +2,7 @@ package main
 
 import (
 	"embed"
+	"runtime/debug"
 
 	"github.com/wailsapp/wails/v2"
 	"github.com/wailsapp/wails/v2/pkg/options"
@@ -12,6 +13,9 @@ import (
 var assets embed.FS
 
 func main() {
+	//  2gb soft memory cap
+	debug.SetMemoryLimit(2 * 1024 * 1024 * 1024)
+
 	app := NewApp()
 
 	err := wails.Run(&options.App{

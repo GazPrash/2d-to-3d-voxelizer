@@ -4,6 +4,8 @@ import {main} from '../models';
 
 export function CancelProcessing():Promise<void>;
 
+export function FreeMemory():Promise<void>;
+
 export function ProcessImage(arg1:string,arg2:main.FrontendSettings):Promise<string>;
 
 export function SaveModel(arg1:string):Promise<string>;

@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, DragEvent, ChangeEvent } from 'react';
 import './App.css';
-import { ProcessImage, CancelProcessing } from '../wailsjs/go/main/App';
+import { ProcessImage, CancelProcessing, FreeMemory } from '../wailsjs/go/main/App';
 import Viewer from './Viewer';
 function App() {
   const [isDragging, setIsDragging] = useState(false);
@@ -158,7 +158,11 @@ function App() {
   }
 
   if (viewState === 'viewer') {
-    return <Viewer objContent={objContent} onBack={() => setViewState('main')} onGenerateAgain={handleGenerate} />;
+    return <Viewer objContent={objContent} onBack={() => {
+      setObjContent('');
+      setViewState('main');
+      FreeMemory();
+    }} onGenerateAgain={handleGenerate} />;
   }
 
   return (

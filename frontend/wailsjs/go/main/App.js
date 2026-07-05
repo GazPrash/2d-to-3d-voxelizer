@@ -6,6 +6,10 @@ export function CancelProcessing() {
   return window['go']['main']['App']['CancelProcessing']();
 }
 
+export function FreeMemory() {
+  return window['go']['main']['App']['FreeMemory']();
+}
+
 export function ProcessImage(arg1, arg2) {
   return window['go']['main']['App']['ProcessImage'](arg1, arg2);
 }

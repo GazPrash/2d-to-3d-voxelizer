@@ -47,6 +47,12 @@ func (a *App) CancelProcessing() {
 	}
 }
 
+// FreeMemory forces Go's garbage collector to run and return memory to the OS.
+// Called from the frontend when navigating away from the 3D viewer.
+func (a *App) FreeMemory() {
+	backend.ForceGC()
+}
+
 func (a *App) ProcessImage(base64ImageData string, frontendSettings FrontendSettings) (string, error) {
 	settings := backend.Settings{
 		Layout:               frontendSettings.Mode,
