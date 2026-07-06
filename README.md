@@ -1,6 +1,9 @@
 # README
 
 <img width="162" height="162" alt="Sprite-0010" src="https://github.com/user-attachments/assets/af006add-ab1d-4a90-9ab7-15a440e65336" />
+
+<video src="https://github.com/user-attachments/assets/67908669-e253-4b2a-b792-5769ea251da1" controls autoplay loop muted style="max-width: 100%;"></video>
+
 <img width="822" height="862" alt="image" src="https://github.com/user-attachments/assets/ccd86615-77ab-40f0-9e9f-733d0f8a50ba" />
 
 This app can be used to generate 3D voxel art based on a 2d pixel art sprite, or generate a fully 3d object
