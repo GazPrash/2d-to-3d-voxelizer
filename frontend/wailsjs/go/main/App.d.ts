@@ -8,4 +8,8 @@ export function FreeMemory():Promise<void>;
 
 export function ProcessImage(arg1:string,arg2:main.FrontendSettings):Promise<string>;
 
+export function ReadLocalFileBase64(arg1:string):Promise<string>;
+
 export function SaveModel(arg1:string):Promise<string>;
+
+export function SelectImage():Promise<string>;
