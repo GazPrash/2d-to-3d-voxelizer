@@ -2,15 +2,16 @@ import { useState, useEffect, DragEvent, ChangeEvent } from 'react';
 import './App.css';
 import { ProcessImage, CancelProcessing, FreeMemory, ReadLocalFileBase64, SelectImage } from '../wailsjs/go/main/App';
 import Viewer from './Viewer';
+import BackgroundTexture from './BackgroundTexture';
+
+
 function App() {
   const [isDragging, setIsDragging] = useState(false);
   const [file, setFile] = useState<File | null>(null);
   const [filePath, setFilePath] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-
   const [viewState, setViewState] = useState<'main' | 'loading' | 'viewer'>('main');
   const [objContent, setObjContent] = useState<string>('');
-
   const [mode, setMode] = useState('auto'); // auto, single, dual, quad
   const [repeated, setRepeated] = useState(false);
   const [shape, setShape] = useState('rounded'); // rounded, flat
@@ -148,8 +149,10 @@ function App() {
 
   if (viewState === 'loading') {
     return (
-      <div className="app-container" style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', gap: '1rem' }}>
-        <div style={{ display: 'flex', flexDirection: 'row', alignItems: 'center', gap: '0.8rem' }}>
+      <div className="app-container" style={{ position: 'relative' }}>
+        <BackgroundTexture />
+        <div style={{ position: 'relative', zIndex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '1rem' }}>
+          <div style={{ display: 'flex', flexDirection: 'row', alignItems: 'center', gap: '0.8rem' }}>
           <div className="loader"></div>
           <h2 style={{ color: '#334155', margin: 0, fontSize: '0.9rem', fontWeight: 'normal' }}>Generating 3D Model...</h2>
         </div>
@@ -164,6 +167,7 @@ function App() {
             Cancel Generation
           </button>
         )}
+        </div>
       </div>
     );
   }
@@ -177,8 +181,9 @@ function App() {
   }
 
   return (
-    <div className="app-container">
-      <div className="content-wrapper">
+    <div className="app-container" style={{ position: 'relative' }}>
+      <BackgroundTexture />
+      <div className="content-wrapper" style={{ position: 'relative', zIndex: 1 }}>
         {/* DROP ZONE */}
         <div
           className={`drop-zone ${isDragging ? 'dragging' : ''} ${file ? 'has-file' : ''}`}
