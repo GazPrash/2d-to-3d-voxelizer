@@ -1,12 +1,12 @@
-import { useState, useEffect, useRef, DragEvent, ChangeEvent } from 'react';
+import { useState, useEffect, DragEvent, ChangeEvent } from 'react';
 import './App.css';
-import { ProcessImage, CancelProcessing, FreeMemory } from '../wailsjs/go/main/App';
+import { ProcessImage, CancelProcessing, FreeMemory, ReadLocalFileBase64, SelectImage } from '../wailsjs/go/main/App';
 import Viewer from './Viewer';
 function App() {
   const [isDragging, setIsDragging] = useState(false);
   const [file, setFile] = useState<File | null>(null);
+  const [filePath, setFilePath] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [viewState, setViewState] = useState<'main' | 'loading' | 'viewer'>('main');
   const [objContent, setObjContent] = useState<string>('');
@@ -54,6 +54,7 @@ function App() {
 
     if (isValid) {
       setFile(selectedFile);
+      setFilePath((selectedFile as any).path || null);
       setError(null);
     } else {
       setError('Invalid file type. Please upload a PNG or JPG.');
@@ -74,65 +75,75 @@ function App() {
     }
   };
 
-  const openFileDialog = () => {
-    if (fileInputRef.current) {
-      fileInputRef.current.click();
+  const openFileDialog = async () => {
+    const [selectedPath, err] = await SelectImage().then(v => [v, null] as const).catch(e => [null, e] as const);
+
+    if (err) {
+      console.error("SelectImage error:", err);
+      return;
+    }
+
+    if (selectedPath) {
+      setFilePath(selectedPath);
+      const fileName = selectedPath.split(/[/\\]/).pop() || 'Selected Image';
+      const fakeFile = new File([], fileName, { type: 'image/png' });
+      setFile(fakeFile);
+      setError(null);
     }
   };
 
-  const handleGenerate = () => {
+  const handleGenerate = async () => {
     if (!file) return;
 
     setViewState('loading');
     setError(null);
 
-    const reader = new FileReader();
-    reader.onerror = () => {
-      console.error("FileReader error:", reader.error);
-      setError('Failed to read the file. It may have been modified externally. Please re-select it.');
+    const settings = {
+      mode: mode,
+      repeated: repeated,
+      shape: shape,
+      biasedScalingEnabled: biasedScalingEnabled,
+      biasedScaleTop: biasedScaleTop,
+      biasedScaleMiddle: biasedScaleMiddle,
+      biasedScaleBottom: biasedScaleBottom,
+      depthScale: depthScale,
+      flatDepth: flatDepth,
+      linearity: true,
+      voxelScale: voxelScale
+    };
+
+    if (!filePath) {
+      setError('Could not determine the file path. Please use the + Upload Image button instead of drag & drop.');
       setFile(null);
-      if (fileInputRef.current) fileInputRef.current.value = '';
+      setFilePath(null);
       setViewState('main');
-    };
-    reader.onloadend = () => {
-      if (reader.error) {
-        return; // Already handled by onerror
-      }
-      if (!reader.result) {
-        setError('Failed to read the file. It may have been modified externally. Please re-select it.');
-        setFile(null);
-        if (fileInputRef.current) fileInputRef.current.value = '';
-        setViewState('main');
-        return;
-      }
-      const base64String = (reader.result as string).replace(/^data:image\/[a-z]+;base64,/, '');
+      return;
+    }
 
-      const settings = {
-        mode: mode,
-        repeated: repeated,
-        shape: shape,
-        biasedScalingEnabled: biasedScalingEnabled,
-        biasedScaleTop: biasedScaleTop,
-        biasedScaleMiddle: biasedScaleMiddle,
-        biasedScaleBottom: biasedScaleBottom,
-        depthScale: depthScale,
-        flatDepth: flatDepth,
-        linearity: true,
-        voxelScale: voxelScale
-      };
+    const [base64String, readErr] = await ReadLocalFileBase64(filePath).then(v => [v, null] as const).catch(e => [null, e] as const);
 
-      ProcessImage(base64String, settings)
-        .then((objStr) => {
-          setObjContent(objStr);
-          setViewState('viewer');
-        })
-        .catch((err) => {
-          console.error(err);
-          setError('Failed to generate 3D model. Check console for details.');
-          setViewState('main');
-        });
-    };
-    reader.readAsDataURL(file);
+    if (readErr) {
+      console.error("Read file error:", readErr);
+      setError('Failed to generate model (file might be locked). Try again.');
+      setViewState('main');
+      return;
+    }
+
+    if (!base64String) return;
+
+    const [objStr, processErr] = await ProcessImage(base64String, settings).then(v => [v, null] as const).catch(e => [null, e] as const);
+
+    if (processErr) {
+      console.error("Generation error:", processErr);
+      setError('Failed to generate model. Try again.');
+      setViewState('main');
+      return;
+    }
+
+    if (objStr) {
+      setObjContent(objStr);
+      setViewState('viewer');
+    }
   };
 
   if (viewState === 'loading') {
@@ -143,8 +154,8 @@ function App() {
           <h2 style={{ color: '#334155', margin: 0, fontSize: '0.9rem', fontWeight: 'normal' }}>Generating 3D Model...</h2>
         </div>
         {showCancel && (
-          <button 
-            className="btn-small-rounded btn-save" 
+          <button
+            className="btn-small-rounded btn-save"
             onClick={() => {
               CancelProcessing();
               setViewState('main');
@@ -180,7 +191,7 @@ function App() {
               <p className="file-name">{file.name}</p>
               <button className="btn" onClick={() => {
                 setFile(null);
-                if (fileInputRef.current) fileInputRef.current.value = '';
+                setFilePath(null);
               }}>Clear</button>
             </div>
           ) : (
@@ -191,13 +202,6 @@ function App() {
               {error && <p className="error-text">{error}</p>}
             </div>
           )}
-          <input
-            type="file"
-            accept=".png, .jpg, .jpeg, image/png, image/jpeg"
-            ref={fileInputRef}
-            onChange={onFileChange}
-            style={{ display: 'none' }}
-          />
         </div>
 
         {/* SETTINGS PANEL */}
@@ -349,8 +353,8 @@ function App() {
                   {/* Info Text */}
                   <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'flex-end' }}>
                     <p className="help-text" style={{ lineHeight: '1.5', margin: 0, opacity: (biasedScalingEnabled && shape === 'rounded') ? 1 : 0.4, fontSize: '0.75rem', textAlign: 'right' }}>
-                      Fine-tune the depth multipliers for different sections of your 3D model. 
-                          Choose whether the top, middle or bottom needs to be thicker than the other.
+                      Fine-tune the depth multipliers for different sections of your 3D model.
+                      Choose whether the top, middle or bottom needs to be thicker than the other.
                     </p>
                   </div>
                 </div>

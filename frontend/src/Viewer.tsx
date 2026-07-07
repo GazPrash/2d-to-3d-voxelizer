@@ -14,13 +14,15 @@ export default function Viewer({ objContent, onBack, onGenerateAgain }: ViewerPr
   const mountRef = useRef<HTMLDivElement>(null);
 
   const handleSave = async () => {
-    try {
-      const savedPath = await SaveModel(objContent);
-      if (savedPath) {
-        console.log('Saved successfully to:', savedPath);
-      }
-    } catch (err) {
+    const [savedPath, err] = await SaveModel(objContent).then(v => [v, null] as const).catch(e => [null, e] as const);
+
+    if (err) {
       console.error('Failed to save model:', err);
+      return;
+    }
+
+    if (savedPath) {
+      console.log('Saved successfully to:', savedPath);
     }
   };
 
