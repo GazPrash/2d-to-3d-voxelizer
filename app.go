@@ -14,6 +14,7 @@ package main
 
 import (
 	"context"
+	"encoding/base64"
 	"log"
 	"os"
 	"path/filepath"
@@ -137,5 +138,29 @@ func (a *App) SaveModel(objContent string) (string, error) {
 		return "", err
 	}
 
+	return filePath, nil
+}
+
+func (a *App) ReadLocalFileBase64(filePath string) (string, error) {
+	data, err := os.ReadFile(filePath)
+	if err != nil {
+		return "", err
+	}
+	return base64.StdEncoding.EncodeToString(data), nil
+}
+
+func (a *App) SelectImage() (string, error) {
+	filePath, err := runtime.OpenFileDialog(a.ctx, runtime.OpenDialogOptions{
+		Title: "Select Image",
+		Filters: []runtime.FileFilter{
+			{
+				DisplayName: "Images (*.png;*.jpg;*.jpeg)",
+				Pattern:     "*.png;*.jpg;*.jpeg",
+			},
+		},
+	})
+	if err != nil {
+		return "", err
+	}
 	return filePath, nil
 }
