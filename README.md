@@ -44,6 +44,10 @@ Checkout https://github.com/GazPrash/2d-to-3d-voxelizer/releases
 ## Building
 RUN the Build version via on MacOS/Linux:
 
+```bash
+wails build && {open/xdg-open} build/bin/pix2dTo3dApp.app
+```
+
 ## Installation & Building from Source
 
 This project is built using **Wails**. Follow the steps below to set up your environment and build the application on your machine.
@@ -94,8 +98,4 @@ wails build
 To run the application in live-development mode (with hot-reloading for the frontend):
 ```bash
 wails dev
-```
-
-```bash
-wails build && {open/xdg-open} build/bin/pix2dTo3dApp.app
 ```
