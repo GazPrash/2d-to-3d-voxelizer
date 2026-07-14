@@ -78,15 +78,15 @@ On Linux distributions, you must install **GTK3** and **WebKit2GTK** development
 ## Install Wails CLI
 If you don't have the Wails CLI installed globally, install it via Go:
 ```bash
-go install [github.com/wailsapp/wails/v2/cmd/wails@latest](https://github.com/wailsapp/wails/v2/cmd/wails@latest)
+go install github.com/wailsapp/wails/v2/cmd/wails@latest
 ```
 ### Make sure your go/bin directory is in your system's PATH!
 
 ## 3. Build the Application
-Clone your fork, navigate to the project directory, and run the following command to compile the production-ready binary:
+Clone the main repo, navigate to the project directory, and run the following command to compile the production-ready binary:
 ```bash
 # Clone the repository
-git clone [https://github.com/KorynDev/2d-to-3d-voxelizer.git](https://github.com/KorynDev/2d-to-3d-voxelizer.git)
+git clone https://github.com/GazPrash/2d-to-3d-voxelizer.git
 cd 2d-to-3d-voxelizer
 
 # Build the app
