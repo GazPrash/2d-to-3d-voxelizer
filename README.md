@@ -47,3 +47,55 @@ RUN the Build version via on MacOS/Linux:
 ```bash
 wails build && {open/xdg-open} build/bin/pix2dTo3dApp.app
 ```
+
+## Installation & Building from Source
+
+This project is built using **Wails**. Follow the steps below to set up your environment and build the application on your machine.
+
+### 1. Prerequisites
+
+You will need **Go** (version 1.21+ recommended) and **Node.js** (with npm) installed on your system.
+
+#### Linux Dependencies
+On Linux distributions, you must install **GTK3** and **WebKit2GTK** development libraries before building:
+
+* **Debian / Ubuntu:**
+  ```bash
+  sudo apt update
+  sudo apt install -y libgtk-3-dev libwebkit2gtk-4.0-dev build-essential
+
+* **Arch Linux:**
+  ```bash
+  sudo pacman -Syu
+  sudo pacman -S --needed gtk3 webkit2gtk base-devel
+
+* **Fedora:**
+  ```bash
+  sudo dnf check-update
+  sudo dnf groupinstall "Development Tools"
+  sudo dnf install gtk3-devel webkit2gtk3-devel
+
+## Install Wails CLI
+If you don't have the Wails CLI installed globally, install it via Go:
+```bash
+go install github.com/wailsapp/wails/v2/cmd/wails@latest
+```
+### Make sure your go/bin directory is in your system's PATH!
+
+## 3. Build the Application
+Clone the main repo, navigate to the project directory, and run the following command to compile the production-ready binary:
+```bash
+# Clone the repository
+git clone https://github.com/GazPrash/2d-to-3d-voxelizer.git
+cd 2d-to-3d-voxelizer
+
+# Build the app
+wails build
+```
+### The compiled executable will be located in the build/bin/ directory.
+
+## 4. Development Mode
+To run the application in live-development mode (with hot-reloading for the frontend):
+```bash
+wails dev
+```
