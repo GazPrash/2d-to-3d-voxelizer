@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"math"
 	"os"
-	"pix2dTo3dApp/backend/logging"
+	"pix2dTo3dApp/backend/logger"
 )
 
 /*
@@ -82,7 +82,7 @@ func writeFaceToObj(buf *bufio.Writer, settings Settings, vIdx int, v1, v2, v3, 
 func writeVoxels(ctx context.Context, voxels *VoxelMap, settings Settings, outFile *string) error {
 	objFile, err := os.Create(*outFile)
 	if err != nil {
-		logging.ERROR(fmt.Sprintf("Failed to create %v. Err: %v", *outFile, err))
+		logger.Errorf("Failed to create %v. Err: %v", *outFile, err)
 		return err
 	}
 
@@ -415,14 +415,14 @@ func generate3DModel(ctx context.Context, inpImage InputImage, depths *[][]int, 
 		return ctx.Err()
 	}
 
-	logging.INFO("Generating mesh ...\n")
+	logger.INFO("Generating mesh ...\n")
 
 	err := writeVoxels(ctx, voxels, inpImage.settings, outFile)
 	if err != nil {
 		return err
 	}
 
-	logging.INFO(fmt.Sprintf("Done! Saved as %s\n", *outFile))
+	logger.Infof("Done! Saved as %s\n", *outFile)
 
 	return nil
 }

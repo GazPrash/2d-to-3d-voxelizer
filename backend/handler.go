@@ -2,7 +2,7 @@ package backend
 
 import (
 	"context"
-	"log"
+	"pix2dTo3dApp/backend/logger"
 	"runtime"
 	"runtime/debug"
 )
@@ -11,7 +11,7 @@ func ConvertTo3D(ctx context.Context, base64Image string, settings Settings, out
 
 	inpImage, err := parseImage(base64Image, settings)
 	if err != nil {
-		log.Printf("Failed to parse the input image; Err: {%v}", err)
+		logger.Printf("Failed to parse the input image; Err: {%v}", err)
 		return err
 	}
 
@@ -33,7 +33,7 @@ func ConvertTo3D(ctx context.Context, base64Image string, settings Settings, out
 	_ = depths
 
 	if err != nil {
-		log.Printf("Failed to generate the model; Err: {%v}", err)
+		logger.Printf("Failed to generate the model; Err: {%v}", err)
 	}
 
 	runtime.GC()

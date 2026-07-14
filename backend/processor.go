@@ -4,14 +4,12 @@ import (
 	"bytes"
 	"context"
 	"encoding/base64"
-	"fmt"
 	"image"
 	_ "image/jpeg"
 	_ "image/png"
-	"log"
 	"math"
 	"math/rand"
-	"pix2dTo3dApp/backend/logging"
+	"pix2dTo3dApp/backend/logger"
 
 	"github.com/nfnt/resize"
 )
@@ -24,7 +22,7 @@ func parseImage(base46Str string, settings Settings) (*InputImage, error) {
 
 	img, _, err := image.Decode(bytes.NewReader(data))
 	if err != nil {
-		log.Printf("Error decoding image: %v\n", err)
+		logger.Printf("Error decoding image: %v\n", err)
 		return nil, err
 	}
 
@@ -33,7 +31,7 @@ func parseImage(base46Str string, settings Settings) (*InputImage, error) {
 	height := bounds.Max.Y
 
 	if width > MaxImageWidth || height > MaxImageHeight {
-		logging.INFO(fmt.Sprintf("Image is too large (%dx%d), resizing to fit within %dx%d...", width, height, MaxImageWidth, MaxImageHeight))
+		logger.Infof("Image is too large (%dx%d), resizing to fit within %dx%d...", width, height, MaxImageWidth, MaxImageHeight)
 
 		img = resize.Thumbnail(uint(MaxImageWidth), uint(MaxImageHeight), img, resize.Lanczos3)
 		bounds = img.Bounds()
@@ -48,19 +46,19 @@ func parseImage(base46Str string, settings Settings) (*InputImage, error) {
 		settings.Shape = "flat"
 		settings.FlatDepth = float64(width) / 2.0
 
-		logging.INFO("Mode: QUAD [Left, Front, Right, Back]\n")
+		logger.INFO("Mode: QUAD [Left, Front, Right, Back]\n")
 
 	} else if settings.Layout == "dual" || (settings.Layout == "auto" && width >= height*2-4) {
 		mode = DUAL
 		width = width / 2
 
-		logging.INFO("Mode: DUAL [Side-by-side for front and back respectively]\n")
+		logger.INFO("Mode: DUAL [Side-by-side for front and back respectively]\n")
 
 	} else {
-		logging.INFO("Mode: SINGLE [Mirroring front texture to the back]\n")
+		logger.INFO("Mode: SINGLE [Mirroring front texture to the back]\n")
 	}
 
-	logging.INFO(fmt.Sprintf("Processing image: %dx%d\n", width, height))
+	logger.Infof("Processing image: %dx%d\n", width, height)
 	inputImg := InputImage{
 		img:      img,
 		mode:     mode,
