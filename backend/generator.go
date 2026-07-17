@@ -387,7 +387,10 @@ func generate3DModel(ctx context.Context, inpImage InputImage, depths *[][]int, 
 		avgColor = computeAverageColor(inpImage)
 	}
 
-	edgeDistX := computeEdgeDistX(inpImage)
+	var edgeDistX [][]int
+	if inpImage.settings.Shape != "flat" {
+		edgeDistX = computeEdgeDistX(inpImage)
+	}
 
 	// "VoxelScale" controls global voxel size: scale down the image
 	// by this factor. 1.0 means 1 pixel = 1 voxel.
@@ -406,7 +409,7 @@ func generate3DModel(ctx context.Context, inpImage InputImage, depths *[][]int, 
 	for oi := 0; oi < outW; oi++ {
 		colOI := oi
 		pool.Submit(func() {
-			processGeneratorColumn(ctx, colOI, outH, scale, inpImage, *depths, edgeDistX, avgColor, voxels)
+			processGeneratorColumn(ctx, colOI, outH, scale, inpImage, depths, edgeDistX, avgColor, voxels)
 		})
 	}
 	pool.Wait()
@@ -432,7 +435,7 @@ func processGeneratorColumn(
 	colOI, outH int,
 	scale float64,
 	inpImage InputImage,
-	depths [][]int,
+	depths *[][]int,
 	edgeDistX [][]int,
 	avgColor RGB,
 	voxels *VoxelMap,
@@ -459,8 +462,16 @@ func processGeneratorColumn(
 			continue
 		}
 
-		d := max(1, int(math.Round(float64(depths[ii][jj])/scale)))
-		edx := max(1, int(math.Round(float64(edgeDistX[ii][jj])/scale)))
+		// note: d and edX only need to be overriden here for rounded-shape selection
+		d := max(1, int(math.Round(inpImage.settings.FlatDepth/scale)))
+		edx := 0
+
+		if depths != nil {
+			d = max(1, int(math.Round(float64((*depths)[ii][jj])/scale)))
+		}
+		if edgeDistX != nil {
+			edx = max(1, int(math.Round(float64(edgeDistX[ii][jj])/scale)))
+		}
 
 		populateVoxelsColumn(ctx, voxels, inpImage, colOI, oj, jj, d, edx, colFront, colBack, aF, aB, avgColor)
 	}

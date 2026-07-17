@@ -71,7 +71,23 @@ func parseImage(base46Str string, settings Settings) (*InputImage, error) {
 	return &inputImg, nil
 }
 
+/*
+the whole point of DepthComputation is to create a depth matrix i.e [][]int
+that has information about what depth should a given pixel on the 2d input image should be
+extruded or expanded to in the newly created z-axis. So for example if you have an image of a circle,
+we use this computation method to create a depth matrix for the sphere that needs to be created
+and we convery that the central part of the sphere is supposed to be more inflated/extruded in the z-axis
+then the the pixels on the edge, i.e the edge pixels of the circle. For this app, we actually prefer to first mould
+the 3d shape into a capsule as it tends to fit most natural rounded shapes. Custom depth biases then can be further applied
+to mould the shape as the user wants.
+
+that said, this function isn't supposed be used for the flat-shape mode and QUAD and 6-SIDED modes.
+*/
 func DepthComputation(ctx context.Context, inpImg InputImage) *[][]int {
+	if inpImg.settings.Shape == "flat" {
+		return nil
+	}
+
 	width := inpImg.width
 	height := inpImg.height
 	// a finite infinity so that we are safe from overflow in EDTF, populated acc to the image
