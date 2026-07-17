@@ -2,7 +2,7 @@ import { useState, useEffect, DragEvent, ChangeEvent } from 'react';
 import './App.css';
 import { ProcessImage, CancelProcessing, FreeMemory, ReadLocalFileBase64, SelectImage } from '../wailsjs/go/main/App';
 import Viewer from './Viewer';
-import BackgroundTexture from './BackgroundTexture';
+
 
 
 function App() {
