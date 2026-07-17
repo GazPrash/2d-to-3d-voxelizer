@@ -20,8 +20,8 @@ func main() {
 
 	err := wails.Run(&options.App{
 		Title:  "2To3D Generator",
-		Width:  800,
-		Height: 800,
+		Width:  720,
+		Height: 720,
 		AssetServer: &assetserver.Options{
 			Assets: assets,
 		},
