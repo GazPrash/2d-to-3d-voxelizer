@@ -150,7 +150,6 @@ function App() {
   if (viewState === 'loading') {
     return (
       <div className="app-container" style={{ position: 'relative' }}>
-        <BackgroundTexture />
         <div style={{ position: 'relative', zIndex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '1rem' }}>
           <div style={{ display: 'flex', flexDirection: 'row', alignItems: 'center', gap: '0.8rem' }}>
           <div className="loader"></div>
@@ -182,7 +181,6 @@ function App() {
 
   return (
     <div className="app-container" style={{ position: 'relative' }}>
-      <BackgroundTexture />
       <div className="content-wrapper" style={{ position: 'relative', zIndex: 1 }}>
         {/* DROP ZONE */}
         <div
@@ -217,28 +215,35 @@ function App() {
             <div className="setting-group full-width">
               <label>Mode</label>
               <div className="segmented-control">
-                {['Auto', 'Single', 'Dual', 'Quad'].map((m) => (
+                {[
+                  { id: 'auto', label: 'Auto' },
+                  { id: 'single', label: 'Single' },
+                  { id: 'dual', label: 'Dual' },
+                  { id: 'quad', label: 'Quad' },
+                  { id: 'six-sided', label: '6-Sided' }
+                ].map((m) => (
                   <button
-                    key={m}
-                    className={`segment-btn ${mode === m.toLowerCase() ? 'active' : ''}`}
+                    key={m.id}
+                    className={`segment-btn ${mode === m.id ? 'active' : ''}`}
                     onClick={() => {
-                      const newMode = m.toLowerCase();
+                      const newMode = m.id;
                       setMode(newMode);
-                      if (newMode === 'quad') {
+                      if (newMode === 'quad' || newMode === 'six-sided') {
                         setShape('flat');
-                        setDepthScale(1.0); // Quad mode requires 1:1 depth scaling
+                        setDepthScale(1.0); // force 1:1 depth scaling for quad/6-sided modes
                       }
                     }}
                   >
-                    {m}
+                    {m.label}
                   </button>
                 ))}
               </div>
               <p className="help-text">
                 {mode === 'auto' && 'Automatically determines sprite format.'}
-                {mode === 'single' && 'Generates based on front sprite.'}
-                {mode === 'dual' && 'Uses left sprite for front, right for back.'}
-                {mode === 'quad' && 'Uses left, front, right & back respectively.'}
+                {mode === 'single' && 'Generates a model based on the front sprite.'}
+                {mode === 'dual' && 'Generates a model based on a 2x1 sprite sheet (Front, Back).'}
+                {mode === 'quad' && 'Maps a 4x1 sprite sheet (Left, Front, Right, Back) to the model.'}
+                {mode === 'six-sided' && 'Maps a 6x1 sprite sheet (Left, Front, Right, Back, Top, Right) to the model.'}
               </p>
             </div>
 
@@ -279,7 +284,7 @@ function App() {
                             setDepthScale(0.4); // restore default depth scale
                           }
                         }}
-                        disabled={mode === 'quad'}
+                        disabled={mode === 'quad' || mode === 'six-sided'}
                       >
                         {s}
                       </button>
@@ -310,7 +315,7 @@ function App() {
                       min="1" max="25" step="1"
                       value={flatDepth}
                       onChange={(e) => setFlatDepth(parseFloat(e.target.value))}
-                      disabled={mode === 'quad'}
+                      disabled={mode === 'quad' || mode === 'six-sided'}
                     />
                     <p className="help-text">Base depth if shape is 'flat'</p>
                   </div>

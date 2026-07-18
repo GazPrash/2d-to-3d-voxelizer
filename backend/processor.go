@@ -40,7 +40,15 @@ func parseImage(base46Str string, settings Settings) (*InputImage, error) {
 	}
 
 	mode := SINGLE
-	if settings.Layout == "quad" || (settings.Layout == "auto" && width >= height*4-8) {
+	if settings.Layout == "six-sided" || (settings.Layout == "auto" && width >= height*6-12) {
+		mode = SIX_SIDED
+		width = width / 6
+		settings.Shape = "flat"
+		settings.FlatDepth = float64(width) / 2.0
+
+		logger.INFO("Mode: SIX-SIDED [Left, Front, Right, Back, Top, Bottom]\n")
+
+	} else if settings.Layout == "quad" || (settings.Layout == "auto" && width >= height*4-8) {
 		mode = QUAD
 		width = width / 4
 		settings.Shape = "flat"
@@ -100,7 +108,7 @@ func DepthComputation(ctx context.Context, inpImg InputImage) *[][]int {
 		for j := range height {
 			var aF, aB uint32
 			switch inpImg.mode {
-			case QUAD:
+			case SIX_SIDED, QUAD:
 				_, _, _, aF = inpImg.img.At(i+width, j).RGBA()
 				_, _, _, aB = inpImg.img.At(i+width*3, j).RGBA()
 			case DUAL:

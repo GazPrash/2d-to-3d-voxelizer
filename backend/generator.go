@@ -134,10 +134,14 @@ func writeVoxels(ctx context.Context, voxels *VoxelMap, settings Settings, outFi
 
 				var faceColor RGB
 				switch {
-				case col.IsQuad && d.x == -1:
+				case (col.IsQuad || col.IsSixSided) && d.x == -1:
 					faceColor = col.LeftColor
-				case col.IsQuad && d.x == 1:
+				case (col.IsQuad || col.IsSixSided) && d.x == 1:
 					faceColor = col.RightColor
+				case col.IsSixSided && d.y == 1:
+					faceColor = col.TopColor
+				case col.IsSixSided && d.y == -1:
+					faceColor = col.BottomColor
 				default:
 					faceColor = col.Color
 				}
@@ -192,7 +196,7 @@ func getFrontBackColors(img InputImage, i, j int) (colFront, colBack RGB, aF, aB
 
 	switch img.mode {
 
-	case QUAD:
+	case QUAD, SIX_SIDED:
 		rF, gF, bF, aF = img.img.At(i+img.width, j).RGBA()
 		rB, gB, bB, aB = img.img.At(i+3*img.width, j).RGBA()
 	case DUAL:
@@ -221,7 +225,7 @@ func getSideColors(img InputImage, z, d, j int) (left, right RGB, aL, aR uint32)
 		uRight = int(float64(d-z) / float64(2*d) * float64(img.width-1))
 	}
 
-	if img.mode == QUAD {
+	if img.mode == QUAD || img.mode == SIX_SIDED {
 		rL, gL, bL, aL = img.img.At(uLeft, j).RGBA()
 		rR, gR, bR, aR = img.img.At(uRight+2*img.width, j).RGBA()
 	} else {
@@ -241,11 +245,27 @@ func spatialHash3D(x, y, z int) float64 {
 	return float64(h%1000) / 1000.0
 }
 
+func getTopBottomColors(img InputImage, ii, z, d int) (top, bottom RGB, aT, aB uint32) {
+	var vTop, vBottom int
+	if d > 0 {
+		vTop = int(float64(z+d) / float64(2*d) * float64(img.height-1))
+		vBottom = int(float64(z+d) / float64(2*d) * float64(img.height-1))
+	}
+
+	var rT, gT, bT, rB, gB, bB uint32
+	rT, gT, bT, aT = img.img.At(ii+4*img.width, vTop).RGBA()
+	rB, gB, bB, aB = img.img.At(ii+5*img.width, vBottom).RGBA()
+
+	top = unpremultiplyRGB(rT, gT, bT, aT)
+	bottom = unpremultiplyRGB(rB, gB, bB, aB)
+	return top, bottom, aT, aB
+}
+
 func populateVoxelsColumn(
 	ctx context.Context,
 	voxels *VoxelMap,
 	img InputImage,
-	i, j, jj, d, edgeDistX int,
+	i, j, ii, jj, d, edgeDistX int,
 	colFront, colBack RGB,
 	aF, aB uint32,
 	avgColor RGB,
@@ -270,7 +290,7 @@ func populateVoxelsColumn(
 		// z-levels so that different depths expose different x-positions.
 		// this is basically done to create an organic and natural voxelization of the
 		// side borders, so it doesn't look like an inflated sandwich lol
-		if img.settings.Shape != "flat" && img.mode != QUAD && edgeDistX > 0 && edgeDistX <= 3 {
+		if img.settings.Shape != "flat" && img.mode != QUAD && img.mode != SIX_SIDED && edgeDistX > 0 && edgeDistX <= 3 {
 			skipProb := 0.0
 			switch edgeDistX {
 			case 1:
@@ -292,7 +312,8 @@ func populateVoxelsColumn(
 		}
 
 		var v Voxel
-		v.IsQuad = true
+		v.IsQuad = img.mode == QUAD
+		v.IsSixSided = img.mode == SIX_SIDED
 
 		if z >= 0 {
 			v.Color = colFront
@@ -304,7 +325,7 @@ func populateVoxelsColumn(
 		// SINGLE mode with Repeated uses the front texture mapped across the depth ONLY for flat shapes.
 		// otherwise, extend the edge color.
 		var aL, aR uint32
-		if img.mode == QUAD || (img.mode == SINGLE && img.settings.Repeated && img.settings.Shape == "flat") {
+		if img.mode == QUAD || img.mode == SIX_SIDED || (img.mode == SINGLE && img.settings.Repeated && img.settings.Shape == "flat") {
 			v.LeftColor, v.RightColor, aL, aR = getSideColors(img, z, maxZ, jj)
 		} else {
 			v.LeftColor = colFront
@@ -313,9 +334,17 @@ func populateVoxelsColumn(
 			aR = 0xFFFFFFFF
 		}
 
-		if img.mode == QUAD {
-			// quad mode exception if either side sprite is transparent at this depth, the voxel shouldn't exist.
+		if img.mode == QUAD || img.mode == SIX_SIDED {
+			// quad and six-sided mode exception; if either side sprite is transparent at this depth, the voxel shouldn't exist.
 			if aL == 0 || aR == 0 {
+				continue
+			}
+		}
+
+		if img.mode == SIX_SIDED {
+			var aT, aBot uint32
+			v.TopColor, v.BottomColor, aT, aBot = getTopBottomColors(img, ii, z, maxZ)
+			if aT == 0 || aBot == 0 {
 				continue
 			}
 		}
@@ -348,7 +377,7 @@ func computeEdgeDistX(img InputImage) [][]int {
 	}
 
 	offsetX := 0
-	if img.mode == QUAD {
+	if img.mode == QUAD || img.mode == SIX_SIDED {
 		offsetX = img.width
 	}
 
@@ -473,7 +502,7 @@ func processGeneratorColumn(
 			edx = max(1, int(math.Round(float64(edgeDistX[ii][jj])/scale)))
 		}
 
-		populateVoxelsColumn(ctx, voxels, inpImage, colOI, oj, jj, d, edx, colFront, colBack, aF, aB, avgColor)
+		populateVoxelsColumn(ctx, voxels, inpImage, colOI, oj, ii, jj, d, edx, colFront, colBack, aF, aB, avgColor)
 	}
 }
 

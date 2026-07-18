@@ -14,6 +14,7 @@ const (
 	SINGLE Mode = iota + 1
 	DUAL
 	QUAD
+	SIX_SIDED
 )
 
 type Voxel struct {
@@ -21,7 +22,10 @@ type Voxel struct {
 	LeftColor    RGB
 	RightColor   RGB
 	RearColor    RGB
+	TopColor     RGB
+	BottomColor  RGB
 	IsQuad       bool
+	IsSixSided   bool
 	OverrideRear bool
 }
 
