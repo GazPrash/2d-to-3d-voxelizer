@@ -415,7 +415,7 @@ function App() {
             </button>
 
             <button
-              className="btn-small-rounded btn-accent"
+              className="btn-small-rounded btn-sage"
               disabled={!file}
               onClick={() => handleGenerate()}
             >

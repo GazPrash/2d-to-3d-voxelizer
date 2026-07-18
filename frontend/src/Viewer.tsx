@@ -165,7 +165,7 @@ export default function Viewer({ objContent, onBack, onGenerateAgain }: ViewerPr
         </button>
       </div>
 
-      <div style={{ position: 'absolute', bottom: '1rem', fontSize: '0.75rem', color: '#94a3b8' }}>
+      <div style={{ position: 'absolute', bottom: '1rem', fontSize: '0.75rem', color: '#1e293b' }}>
         made with ♥  by GazPrash
       </div>
     </div>

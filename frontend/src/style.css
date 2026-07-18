@@ -1,9 +1,9 @@
 @import "@fontsource/source-sans-3/index.css";
 
 html {
-    background-color: #e2e8f0;
+    background-color: #7D929E;
     text-align: center;
-    color: #334155;
+    color: #ffffff;
     box-sizing: border-box;
     font-size: clamp(16px, 1vw + 6px, 24px);
 }
@@ -14,11 +14,11 @@ html {
 
 body {
     margin: 0;
-    color: #334155;
+    color: #ffffff;
     font-family: "Source Sans 3", "Source Sans Pro", -apple-system, BlinkMacSystemFont, "Segoe UI", "Roboto",
     "Oxygen", "Ubuntu", "Cantarell", "Fira Sans", "Droid Sans", "Helvetica Neue",
     sans-serif;
-    background-color: #e2e8f0;
+    background-color: #7D929E;
     overflow: hidden;
 }
 
