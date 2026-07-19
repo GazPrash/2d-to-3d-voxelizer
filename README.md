@@ -6,13 +6,13 @@
 
 <video src="https://github.com/user-attachments/assets/67908669-e253-4b2a-b792-5769ea251da1" controls autoplay loop muted style="max-width: 100%;"></video>
 
-
-
 A simple tool that can be used to generate 3D voxel art based on a 2d pixel art sprite, or generate a fully 3d object
 based on provided 4 or 6 sided pixel-art sprite sheet. The output can be saved as a .obj file which can be imported or used
 with Blender, Unity, Godot or any other Game Engine or 3D Modelling software. Internally we use simple math algorithms 
 to extend a 2D image into a 3D voxel grid without using any AI models so that your actual art is well preserved, but it also comes with 
 a downside, which is this method may not be very useful for complicated pixel art styles with varying depths.
+
+The tree art in the image and video was taken for the demo from here: https://graphscriptdev.itch.io/plant-trees?download
 
 ## Modes
 <img width="618" height="611" alt="app_preview" src="https://github.com/user-attachments/assets/c1e864cd-f00c-4242-be31-d49e72670820" />
@@ -48,23 +48,13 @@ Depth scaling controls the thickness and depth structure of the generated voxels
 Checkout https://github.com/GazPrash/2d-to-3d-voxelizer/releases
 
 ## Building
-RUN the Build version via on MacOS/Linux:
-
-```bash
-wails build && {open/xdg-open} build/bin/pix2dTo3dApp.app
-```
-
-## Installation & Building from Source
-
-This project is built using **Wails**. Follow the steps below to set up your environment and build the application on your machine.
+This project is built using **Wails**. You will need to setup the following:
 
 ### 1. Prerequisites
 
 You will need **Go** (version 1.21+ recommended) and **Node.js** (with npm) installed on your system.
 
-#### Linux Dependencies
-On Linux distributions, you must install **GTK3** and **WebKit2GTK** development libraries before building:
-
+On Linux distributions, you must install **GTK3** and **WebKit2GTK** development libraries before building; (MacOS users can skip to the next step).
 * **Debian / Ubuntu:**
   ```bash
   sudo apt update
@@ -81,24 +71,30 @@ On Linux distributions, you must install **GTK3** and **WebKit2GTK** development
   sudo dnf groupinstall "Development Tools"
   sudo dnf install gtk3-devel webkit2gtk3-devel
 
-## Install Wails CLI
+### 2. Install Wails CLI
 If you don't have the Wails CLI installed globally, install it via Go:
 ```bash
 go install github.com/wailsapp/wails/v2/cmd/wails@latest
 ```
-### Make sure your go/bin directory is in your system's PATH!
+**Make sure your go/bin directory is in your system's PATH.**
 
-## 3. Build the Application
+### 3. Build the Application
 Clone the main repo, navigate to the project directory, and run the following command to compile the production-ready binary:
 ```bash
 # Clone the repository
 git clone https://github.com/GazPrash/2d-to-3d-voxelizer.git
-cd 2d-to-3d-voxelizer
+```
+or via ssh
+```bash
+git clone git@github.com:GazPrash/2d-to-3d-voxelizer.git 
+```
+and then;
 
-# Build the app
+```bash
+cd 2d-to-3d-voxelizer
 wails build
 ```
-### The compiled executable will be located in the build/bin/ directory.
+The compiled executable will be located in the build/bin/ directory.
 
 ## 4. Development Mode
 To run the application in live-development mode (with hot-reloading for the frontend):
