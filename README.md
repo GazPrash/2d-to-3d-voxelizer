@@ -4,6 +4,8 @@
 
 <img width="384" height="256" alt="2D To 3D Voxelizer" src="https://github.com/user-attachments/assets/d0545047-9b01-49ad-b985-ace3beff14b8" />
 
+<video src="https://github.com/user-attachments/assets/67908669-e253-4b2a-b792-5769ea251da1" controls autoplay loop muted style="max-width: 50%;"></video>
+
 
 
 A simple tool that can be used to generate 3D voxel art based on a 2d pixel art sprite, or generate a fully 3d object
