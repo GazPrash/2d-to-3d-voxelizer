@@ -54,7 +54,7 @@ This project is built using **Wails**. You will need to setup the following:
 
 You will need **Go** (version 1.21+ recommended) and **Node.js** (with npm) installed on your system.
 
-On Linux distributions, you must install **GTK3** and **WebKit2GTK** development libraries before building; (MacOS users can skip to the next step).
+On Linux distributions, you must install **GTK3** and **WebKit2GTK** development libraries before building; (**MacOS** users can skip to the next step).
 * **Debian / Ubuntu:**
   ```bash
   sudo apt update
@@ -96,7 +96,7 @@ wails build
 ```
 The compiled executable will be located in the build/bin/ directory.
 
-## 4. Development Mode
+### 4. Development Mode
 To run the application in live-development mode (with hot-reloading for the frontend):
 ```bash
 wails dev
