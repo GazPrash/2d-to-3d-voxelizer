@@ -1,16 +1,17 @@
 # README
 
 <img width="162" height="162" alt="Sprite-0010" src="https://github.com/user-attachments/assets/af006add-ab1d-4a90-9ab7-15a440e65336" />
+<img width="768" height="512" alt="vox-poster" src="https://github.com/user-attachments/assets/90640c12-2e17-4abb-ba39-32837b71d162" />
 
-<video src="https://github.com/user-attachments/assets/67908669-e253-4b2a-b792-5769ea251da1" controls autoplay loop muted style="max-width: 100%;"></video>
-
-<img width="822" height="862" alt="image" src="https://github.com/user-attachments/assets/ccd86615-77ab-40f0-9e9f-733d0f8a50ba" />
-
-This app can be used to generate 3D voxel art based on a 2d pixel art sprite, or generate a fully 3d object
-based on provided 4 sided pixel-art sprite sheet. The output can be saved as a .obj file which can be imported or used
-with Blender, Unity, Godot or any other Game Engine or 3D Modelling software.
+A simple tool that can be used to generate 3D voxel art based on a 2d pixel art sprite, or generate a fully 3d object
+based on provided 4 or 6 sided pixel-art sprite sheet. The output can be saved as a .obj file which can be imported or used
+with Blender, Unity, Godot or any other Game Engine or 3D Modelling software. Internally we use simple math algorithms 
+to extend a 2D image into a 3D voxel grid without using any AI models so that your actual art is well preserved, but it also comes with 
+a downside, which is this method may not be very useful for complicated pixel art styles with varying depths.
 
 ## Modes
+<img width="618" height="611" alt="app_preview" src="https://github.com/user-attachments/assets/c1e864cd-f00c-4242-be31-d49e72670820" />
+
 the app supports various generation modes based on the type of sprite input;
 
 - **Single**: Generates a 3D voxel representation based on a single 2D sprite image.
