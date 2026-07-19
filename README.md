@@ -40,7 +40,7 @@ The sprite sheet must be laid out horizontally in the following specific order:
   <img
     src="demos/sci-Sheet-export.png"
     alt="Quad Sprite Sheet Example"
-    width="1236"
+    width="256"
   >
 </div>
 
