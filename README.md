@@ -36,7 +36,18 @@ The sprite sheet must be laid out horizontally in the following specific order:
 **Note**: You should use animation frame feature of aseprite or similar pixel art editors to generate a horizontal spread sheet, that would be easier to work with.
 
 Example Quad Sprite Sheet:
-![Quad Sprite Sheet Example](demos/sci-Sheet-export.png)
+<img src="demos/sci-Sheet-export.png" alt="Quad Sprite Sheet Example" width="256" height="64">
+
+### Using 6-Sided Mode
+It is similar to the quad mode, except it is also inclusive of two more faces top and bottom, in that order;
+1. **Left Side**
+2. **Front**
+3. **Right Side**
+4. **Back**
+5. **Top Side**
+6. **Bottom Side**
+
+So just like the quad sprite sheet, here you would require a 6x1 sprite sheet, instead of a 4x1 sprite sheet.
 
 ## Depth Scaling
 Depth scaling controls the thickness and depth structure of the generated voxels along the Z-axis.
