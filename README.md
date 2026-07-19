@@ -35,8 +35,14 @@ The sprite sheet must be laid out horizontally in the following specific order:
 **Important:** The artwork must be properly centered within each of the 4 faces in the sprite sheet to ensure proper alignment and symmetry when generating the 3D model.
 **Note**: You should use animation frame feature of aseprite or similar pixel art editors to generate a horizontal spread sheet, that would be easier to work with.
 
-Example Quad Sprite Sheet:
-<img src="demos/sci-Sheet-export.png" alt="Quad Sprite Sheet Example" width="256" height="64">
+<div style="display: flex; align-items: center; gap: 12px;">
+  <strong>Example Quad Sprite Sheet:</strong>
+  <img
+    src="demos/sci-Sheet-export.png"
+    alt="Quad Sprite Sheet Example"
+    width="1236"
+  >
+</div>
 
 ### Using 6-Sided Mode
 It is similar to the quad mode, except it is also inclusive of two more faces top and bottom, in that order;
