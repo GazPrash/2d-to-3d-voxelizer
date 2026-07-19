@@ -2,7 +2,7 @@
 
 <img width="162" height="162" alt="Sprite-0010" src="https://github.com/user-attachments/assets/af006add-ab1d-4a90-9ab7-15a440e65336" />
 
-<img width="384" height="256" alt="2D To 3D Voxelizer" src="https://github.com/user-attachments/assets/d0545047-9b01-49ad-b985-ace3beff14b8" />
+<img width="384" height="256" alt="2D To 3D Voxelizer" src="https://github.com/user-attachments/assets/cfaba3c2-53cb-442c-9b5a-df101bbbbeb0" />
 
 <video src="https://github.com/user-attachments/assets/67908669-e253-4b2a-b792-5769ea251da1" controls autoplay loop muted style="max-width: 100%;"></video>
 
