@@ -19,9 +19,11 @@ function App() {
   const [biasedScaleTop, setBiasedScaleTop] = useState(1.0);
   const [biasedScaleMiddle, setBiasedScaleMiddle] = useState(1.0);
   const [biasedScaleBottom, setBiasedScaleBottom] = useState(1.0);
-  const [depthScale, setDepthScale] = useState(0.4);
+  const [depthScale, setDepthScale] = useState(0.8);
   const [flatDepth, setFlatDepth] = useState(5.0);
   const [voxelScale, setVoxelScale] = useState(1.0);
+  const [capsulePower, setCapsulePower] = useState(0.85);
+  const [baseThickness, setBaseThickness] = useState(2.0);
   const [showCancel, setShowCancel] = useState(false);
 
   useEffect(() => {
@@ -110,7 +112,9 @@ function App() {
       depthScale: depthScale,
       flatDepth: flatDepth,
       linearity: true,
-      voxelScale: voxelScale
+      voxelScale: voxelScale,
+      capsulePower: capsulePower,
+      baseThickness: baseThickness
     };
 
     if (!filePath) {
@@ -213,7 +217,7 @@ function App() {
           <div className="settings-section">
             {/* Mode Selection */}
             <div className="setting-group full-width">
-              <label>Mode</label>
+              <label style={{ fontWeight: 600 }}>Mode</label>
               <div className="segmented-control">
                 {[
                   { id: 'auto', label: 'Auto' },
@@ -265,11 +269,11 @@ function App() {
           </div>
 
           <div className="settings-section">
-            <div className="setting-row">
+            <div className="setting-row" style={{ flexWrap: 'nowrap' }}>
               {/* LEFT COLUMN: Shape & Depth */}
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.8rem', flex: 1 }}>
-                <div className="setting-group">
-                  <label>Depth Shape</label>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem', flex: 1 }}>
+                <div className="setting-group" style={{ flex: 'none' }}>
+                  <label style={{ fontWeight: 600 }}>Depth Shape</label>
                   <div className="segmented-control">
                     {['Rounded', 'Flat'].map((s) => (
                       <button
@@ -293,7 +297,7 @@ function App() {
                 </div>
 
                 {shape !== 'flat' && (
-                  <div className="setting-group">
+                  <div className="setting-group" style={{ flex: 'none' }}>
                     <label>Depth Scale: {depthScale.toFixed(2)}</label>
                     <input
                       type="range"
@@ -302,12 +306,12 @@ function App() {
                       value={depthScale}
                       onChange={(e) => setDepthScale(parseFloat(e.target.value))}
                     />
-                    <p className="help-text">Multiplier for the 3D depth</p>
+                    <p className="help-text">Stretches or squishes the entire 3D model on the Z-axis</p>
                   </div>
                 )}
 
                 {shape === 'flat' && (
-                  <div className="setting-group">
+                  <div className="setting-group" style={{ flex: 'none' }}>
                     <label>Flat Depth: {flatDepth.toFixed(1)}</label>
                     <input
                       type="range"
@@ -322,10 +326,49 @@ function App() {
                 )}
               </div>
 
+              {/* MIDDLE COLUMN: Roundness Adjustment */}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem', flex: 1, borderLeft: '1px solid #f1f5f9', paddingLeft: '1.5rem' }}>
+                <div className="setting-group" style={{ flex: 'none', flexDirection: 'row', alignItems: 'center', gap: '0.4rem' }}>
+                  <label style={{ fontWeight: 600 }}>Roundness Adjustment</label>
+                  <div className="tooltip-container">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#766471" strokeWidth="2.75" strokeLinecap="round" strokeLinejoin="round" style={{ cursor: 'help' }}>
+                      <circle cx="12" cy="12" r="10"></circle>
+                      <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"></path>
+                      <line x1="12" y1="17" x2="12.01" y2="17"></line>
+                    </svg>
+                    <span className="tooltip-text">Use these settings along with the Depth Scale to control the core curvature of your model. Trial and Error is recommended.</span>
+                  </div>
+                </div>
+                <div className="setting-group" style={{ opacity: shape === 'flat' ? 0.4 : 1, flex: 'none' }}>
+                  <label>Steepness Curve: {capsulePower.toFixed(2)}</label>
+                  <input
+                    type="range"
+                    className="range-slider"
+                    min="0.5" max="1.5" step="0.05"
+                    value={capsulePower}
+                    onChange={(e) => setCapsulePower(parseFloat(e.target.value))}
+                    disabled={shape === 'flat'}
+                  />
+                  <p className="help-text">Adjusts the slope thickness (1.0 = cone, &lt;1.0 = rounded)</p>
+                </div>
+                <div className="setting-group" style={{ opacity: shape === 'flat' ? 0.4 : 1, flex: 'none' }}>
+                  <label>Base Thickness: {baseThickness.toFixed(1)}</label>
+                  <input
+                    type="range"
+                    className="range-slider"
+                    min="1.0" max="5.0" step="0.1"
+                    value={baseThickness}
+                    onChange={(e) => setBaseThickness(parseFloat(e.target.value))}
+                    disabled={shape === 'flat'}
+                  />
+                  <p className="help-text">Controls how inflated or "puffy" the shape is</p>
+                </div>
+              </div>
+
               {/* RIGHT COLUMN: Biased Scaling */}
               <div style={{ display: 'flex', flexDirection: 'column', flex: 1, borderLeft: '1px solid #f1f5f9', paddingLeft: '1.5rem' }}>
-                <div className="setting-group" style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1rem', flex: 'none' }}>
-                  <label style={{ margin: 0 }}>Biased Scaling</label>
+                <div className="setting-group" style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1.5rem', flex: 'none' }}>
+                  <label style={{ margin: 0, fontWeight: 600 }}>Biased Scaling</label>
                   <label className="switch-wrapper" style={{ transform: 'scale(0.8)' }}>
                     <input
                       type="checkbox"
@@ -339,7 +382,7 @@ function App() {
 
                 <div style={{ display: 'flex', flexDirection: 'row', gap: '0.6rem' }}>
                   {/* Sliders */}
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem', flex: 1 }}>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem', flex: 1, opacity: (!biasedScalingEnabled || shape !== 'rounded') ? 0.4 : 1 }}>
                     <div className="setting-group small-ui">
                       <label>Top Scale: {biasedScaleTop.toFixed(2)}</label>
                       <input type="range" className="range-slider small-slider" min="0.0" max="3.0" step="0.1"
@@ -375,7 +418,7 @@ function App() {
           <div className="settings-section">
             {/* Voxel Size */}
             <div className="setting-group full-width">
-              <label>Voxel Size</label>
+              <label style={{ fontWeight: 600 }}>Voxel Size</label>
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '2px' }}>
                 <button
                   className="btn-small-rounded"
@@ -409,6 +452,8 @@ function App() {
                 setDepthScale(0.4);
                 setFlatDepth(5.0);
                 setVoxelScale(1.0);
+                setCapsulePower(0.85);
+                setBaseThickness(2.5);
               }}
             >
               Reset Settings
