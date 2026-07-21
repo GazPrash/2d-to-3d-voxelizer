@@ -30,16 +30,18 @@ type Voxel struct {
 }
 
 type Settings struct {
-	Layout               string
-	Repeated             bool
-	Shape                string
-	BiasedScalingEnabled bool
-	BiasedScaleTop       float64
-	BiasedScaleMiddle    float64
-	BiasedScaleBottom    float64
-	DepthScale           float64
-	FlatDepth            float64
-	VoxelScale           float64 // scale factor for global voxel size (1.0 to 3.0)
+	Layout               string  `json:"mode"`
+	Repeated             bool    `json:"repeated"`
+	Shape                string  `json:"shape"`
+	BiasedScalingEnabled bool    `json:"biasedScalingEnabled"`
+	BiasedScaleTop       float64 `json:"biasedScaleTop"`
+	BiasedScaleMiddle    float64 `json:"biasedScaleMiddle"`
+	BiasedScaleBottom    float64 `json:"biasedScaleBottom"`
+	DepthScale           float64 `json:"depthScale"`
+	FlatDepth            float64 `json:"flatDepth"`
+	VoxelScale           float64 `json:"voxelScale"` // scale factor for global voxel size (1.0 to 3.0)
+	CapsulePower         float64 `json:"capsulePower"`
+	BaseThickness        float64 `json:"baseThickness"`
 }
 
 type InputImage struct {

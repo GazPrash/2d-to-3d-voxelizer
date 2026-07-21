@@ -30,19 +30,6 @@ type App struct {
 	mu     sync.Mutex
 }
 
-type FrontendSettings struct {
-	Mode                 string  `json:"mode"`
-	Repeated             bool    `json:"repeated"`
-	Shape                string  `json:"shape"`
-	BiasedScalingEnabled bool    `json:"biasedScalingEnabled"`
-	BiasedScaleTop       float64 `json:"biasedScaleTop"`
-	BiasedScaleMiddle    float64 `json:"biasedScaleMiddle"`
-	BiasedScaleBottom    float64 `json:"biasedScaleBottom"`
-	DepthScale           float64 `json:"depthScale"`
-	FlatDepth            float64 `json:"flatDepth"`
-	VoxelScale           float64 `json:"voxelScale"`
-}
-
 func NewApp() *App {
 	return &App{}
 }
@@ -66,20 +53,7 @@ func (a *App) FreeMemory() {
 	backend.ForceGC()
 }
 
-func (a *App) ProcessImage(base64ImageData string, frontendSettings FrontendSettings) (string, error) {
-	settings := backend.Settings{
-		Layout:               frontendSettings.Mode,
-		Repeated:             frontendSettings.Repeated,
-		Shape:                frontendSettings.Shape,
-		BiasedScalingEnabled: frontendSettings.BiasedScalingEnabled,
-		BiasedScaleTop:       frontendSettings.BiasedScaleTop,
-		BiasedScaleMiddle:    frontendSettings.BiasedScaleMiddle,
-		BiasedScaleBottom:    frontendSettings.BiasedScaleBottom,
-		DepthScale:           frontendSettings.DepthScale,
-		FlatDepth:            frontendSettings.FlatDepth,
-		VoxelScale:           frontendSettings.VoxelScale,
-	}
-
+func (a *App) ProcessImage(base64ImageData string, settings backend.Settings) (string, error) {
 	a.mu.Lock()
 	if a.cancel != nil {
 		a.cancel()
