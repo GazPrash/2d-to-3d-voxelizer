@@ -304,13 +304,29 @@ func processFattenColumn(
 			continue
 		}
 
-		// transforming the base of the voxel to a rounded/capsule shape here
-		r := math.Max(20.0, float64(min(width, height))*0.1)
-		if minDist < r {
-			minDist = math.Sqrt(minDist * (2*r - minDist))
-		} else {
-			minDist = r
-		}
+		/*
+			transforming the base of the voxel to a rounded/capsule shape here.
+			instead of using a global `r` value to set the minDist i.e depth for each pixel like we did previously,'
+			here we are going to let the user modify it as well via roundness adjustment.
+
+			this also make sures that in case of pixels locally connected but seperated in between by transparent pixels
+			are not applied the same depth on the z-axis. For example consider an arbitary row:
+
+			[0][0][0][0][x][x][x][0][0][0][x][x][x][x][x][x][x][0][0][0][0]
+
+			where;
+					1. [0] : transparent pixel
+					2. [x] : solid pixel
+
+			so previously, the part in 3d formed by the [x][x][x] (smaller locally connected region) would
+			be assigned the depth equal to the larger area further on the right on the same row.
+
+			But now both indidually indepenet areas will have different depths as per their covered area in 2D i.e along the row.
+
+			we have the minDist of each solid pixel to it's *nearest* transparent pixel, we apply a roundness curve to it based
+			on the user's value and then that would be it's thickness, instead of a calculation based on global r value.minDist
+		*/
+		minDist = math.Pow(minDist, imgSettings.CapsulePower) * imgSettings.BaseThickness
 
 		// add dist bias for voxel randomization
 		normalizedY := float64(j) / float64(height)

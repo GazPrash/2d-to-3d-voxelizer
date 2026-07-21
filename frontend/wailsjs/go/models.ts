@@ -1,6 +1,6 @@
-export namespace main {
+export namespace backend {
 	
-	export class FrontendSettings {
+	export class Settings {
 	    mode: string;
 	    repeated: boolean;
 	    shape: string;
@@ -11,9 +11,11 @@ export namespace main {
 	    depthScale: number;
 	    flatDepth: number;
 	    voxelScale: number;
+	    capsulePower: number;
+	    baseThickness: number;
 	
 	    static createFrom(source: any = {}) {
-	        return new FrontendSettings(source);
+	        return new Settings(source);
 	    }
 	
 	    constructor(source: any = {}) {
@@ -28,6 +30,8 @@ export namespace main {
 	        this.depthScale = source["depthScale"];
 	        this.flatDepth = source["flatDepth"];
 	        this.voxelScale = source["voxelScale"];
+	        this.capsulePower = source["capsulePower"];
+	        this.baseThickness = source["baseThickness"];
 	    }
 	}
 
