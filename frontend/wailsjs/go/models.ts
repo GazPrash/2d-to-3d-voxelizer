@@ -37,3 +37,22 @@ export namespace backend {
 
 }
 
+export namespace main {
+	
+	export class ModelOutput {
+	    objContent: string;
+	    mtlContent: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new ModelOutput(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.objContent = source["objContent"];
+	        this.mtlContent = source["mtlContent"];
+	    }
+	}
+
+}
+
