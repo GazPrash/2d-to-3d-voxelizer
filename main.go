@@ -20,7 +20,7 @@ func main() {
 
 	err := wails.Run(&options.App{
 		Title:  "pix2dTo3dApp",
-		Width:  800,
+		Width:  900,
 		Height: 800,
 		AssetServer: &assetserver.Options{
 			Assets: assets,
