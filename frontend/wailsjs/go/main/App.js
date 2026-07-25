@@ -18,8 +18,8 @@ export function ReadLocalFileBase64(arg1) {
   return window['go']['main']['App']['ReadLocalFileBase64'](arg1);
 }
 
-export function SaveModel(arg1) {
-  return window['go']['main']['App']['SaveModel'](arg1);
+export function SaveModel(arg1, arg2) {
+  return window['go']['main']['App']['SaveModel'](arg1, arg2);
 }
 
 export function SelectImage() {
