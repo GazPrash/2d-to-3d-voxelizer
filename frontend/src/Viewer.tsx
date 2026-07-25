@@ -1,22 +1,24 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import * as THREE from 'three';
 import { OBJLoader } from 'three/examples/jsm/loaders/OBJLoader.js';
+import { MTLLoader } from 'three/examples/jsm/loaders/MTLLoader.js';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { SaveModel } from '../wailsjs/go/main/App';
 
 interface ViewerProps {
   objContent: string;
+  mtlContent: string;
   onBack: () => void;
   onGenerateAgain: () => void;
 }
 
-export default function Viewer({ objContent, onBack, onGenerateAgain }: ViewerProps) {
+export default function Viewer({ objContent, mtlContent, onBack, onGenerateAgain }: ViewerProps) {
   const mountRef = useRef<HTMLDivElement>(null);
   const [isRenderMode, setIsRenderMode] = useState(false);
   const [isIsometric, setIsIsometric] = useState(false);
 
   const handleSave = async () => {
-    const [savedPath, err] = await SaveModel(objContent).then(v => [v, null] as const).catch(e => [null, e] as const);
+    const [savedPath, err] = await SaveModel(objContent, mtlContent).then(v => [v, null] as const).catch(e => [null, e] as const);
 
     if (err) {
       console.error('Failed to save model:', err);
@@ -45,7 +47,7 @@ export default function Viewer({ objContent, onBack, onGenerateAgain }: ViewerPr
       camera.position.set(10, 10, 10);
     } else {
       camera = new THREE.PerspectiveCamera(75, width / height, 0.1, 1000);
-    camera.position.set(0, 2, 5);
+      camera.position.set(0, 2, 5);
     }
     camera.lookAt(0, 0, 0);
 
@@ -109,38 +111,46 @@ export default function Viewer({ objContent, onBack, onGenerateAgain }: ViewerPr
       plane.receiveShadow = true;
       scene.add(plane);
     } else {
-    const gridHelper = new THREE.GridHelper(10, 20, 0xaaaaaa, 0xe0e0e0);
-    gridHelper.position.y = -1.5;
-    scene.add(gridHelper);
+      const gridHelper = new THREE.GridHelper(10, 20, 0xaaaaaa, 0xe0e0e0);
+      gridHelper.position.y = -1.5;
+      scene.add(gridHelper);
     }
 
     const controls = new OrbitControls(camera, renderer.domElement);
     controls.enableDamping = true;
 
+    const mtlBlob = new Blob([mtlContent], { type: 'text/plain' });
+    const mtlUrl = URL.createObjectURL(mtlBlob);
+
     const blob = new Blob([objContent], { type: 'text/plain' });
     const url = URL.createObjectURL(blob);
 
-    const loader = new OBJLoader();
+    const mtlLoader = new MTLLoader();
+    const objLoader = new OBJLoader();
     
     let loadedObjectGroup: THREE.Group | null = null;
     
-    loader.load(url, (obj) => {
-      const box = new THREE.Box3().setFromObject(obj);
-      const center = box.getCenter(new THREE.Vector3());
-      
-      obj.position.set(-center.x, -center.y, -center.z);
+    mtlLoader.load(mtlUrl, (materials) => {
+      materials.preload();
+      objLoader.setMaterials(materials);
 
-      obj.traverse((child) => {
-        if ((child as THREE.Mesh).isMesh) {
-          const mesh = child as THREE.Mesh;
+      objLoader.load(url, (obj) => {
+        const box = new THREE.Box3().setFromObject(obj);
+        const center = box.getCenter(new THREE.Vector3());
+        
+        obj.position.set(-center.x, -center.y, -center.z);
+
+        obj.traverse((child) => {
+          if ((child as THREE.Mesh).isMesh) {
+            const mesh = child as THREE.Mesh;
             if (isRenderMode) {
-          if (Array.isArray(mesh.material)) {
+              if (Array.isArray(mesh.material)) {
                 mesh.material = mesh.material.map((m: any) => new THREE.MeshStandardMaterial({
                   color: m.color || 0xffffff,
                   roughness: 0.7,
                   metalness: 0.1,
                 }));
-          } else {
+              } else {
                 const oldMat = mesh.material as any;
                 mesh.material = new THREE.MeshStandardMaterial({
                   color: oldMat.color || 0xffffff,
@@ -150,21 +160,23 @@ export default function Viewer({ objContent, onBack, onGenerateAgain }: ViewerPr
               }
               mesh.castShadow = true;
               mesh.receiveShadow = true;
+            }
           }
-        }
+        });
+
+        const size = box.getSize(new THREE.Vector3());
+        const maxDim = Math.max(size.x, size.y, size.z);
+        const scale = 3 / (maxDim || 1); 
+
+        loadedObjectGroup = new THREE.Group();
+        loadedObjectGroup.add(obj);
+        loadedObjectGroup.scale.set(scale, scale, scale);
+        
+        scene.add(loadedObjectGroup);
+        
+        URL.revokeObjectURL(url);
+        URL.revokeObjectURL(mtlUrl);
       });
-
-      const size = box.getSize(new THREE.Vector3());
-      const maxDim = Math.max(size.x, size.y, size.z);
-      const scale = 3 / (maxDim || 1); 
-
-      loadedObjectGroup = new THREE.Group();
-      loadedObjectGroup.add(obj);
-      loadedObjectGroup.scale.set(scale, scale, scale);
-      
-      scene.add(loadedObjectGroup);
-      
-      URL.revokeObjectURL(url);
     });
 
     let animationId: number;

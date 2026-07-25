@@ -21,8 +21,15 @@ import (
 	"pix2dTo3dApp/backend"
 	"sync"
 
+	"strings"
+
 	"github.com/wailsapp/wails/v2/pkg/runtime"
 )
+
+type ModelOutput struct {
+	ObjContent string `json:"objContent"`
+	MtlContent string `json:"mtlContent"`
+}
 
 type App struct {
 	ctx    context.Context
@@ -53,7 +60,7 @@ func (a *App) FreeMemory() {
 	backend.ForceGC()
 }
 
-func (a *App) ProcessImage(base64ImageData string, settings backend.Settings) (string, error) {
+func (a *App) ProcessImage(base64ImageData string, settings backend.Settings) (ModelOutput, error) {
 	a.mu.Lock()
 	if a.cancel != nil {
 		a.cancel()
@@ -72,23 +79,35 @@ func (a *App) ProcessImage(base64ImageData string, settings backend.Settings) (s
 	}()
 
 	tempFile := filepath.Join(os.TempDir(), "pix2d_out_temp.obj")
+	tempMtlFile := filepath.Join(os.TempDir(), "pix2d_out_temp.mtl")
 	err := backend.ConvertTo3D(jobCtx, base64ImageData, settings, tempFile)
 	if err != nil {
 		log.Printf("Failed to convert the input file; Err: %v", err)
-		return "", err
+		return ModelOutput{}, err
 	}
 
 	objData, err := os.ReadFile(tempFile)
 	if err != nil {
 		log.Printf("Failed to read the created object file; Err: %v", err)
-		return "", err
+		return ModelOutput{}, err
 	}
+	
+	mtlData, err := os.ReadFile(tempMtlFile)
+	if err != nil {
+		log.Printf("Failed to read the created mtl file; Err: %v", err)
+		return ModelOutput{}, err
+	}
+	
 	os.Remove(tempFile)
+	os.Remove(tempMtlFile)
 
-	return string(objData), nil
+	return ModelOutput{
+		ObjContent: string(objData),
+		MtlContent: string(mtlData),
+	}, nil
 }
 
-func (a *App) SaveModel(objContent string) (string, error) {
+func (a *App) SaveModel(objContent string, mtlContent string) (string, error) {
 	filePath, err := runtime.SaveFileDialog(a.ctx, runtime.SaveDialogOptions{
 		Title:           "Save 3D Model",
 		DefaultFilename: "model.obj",
@@ -107,7 +126,16 @@ func (a *App) SaveModel(objContent string) (string, error) {
 		return "", nil
 	}
 
-	err = os.WriteFile(filePath, []byte(objContent), 0644)
+	mtlFileName := strings.TrimSuffix(filepath.Base(filePath), ".obj") + ".mtl"
+	finalObjContent := strings.Replace(objContent, "mtllib placeholder.mtl", "mtllib "+mtlFileName, 1)
+
+	err = os.WriteFile(filePath, []byte(finalObjContent), 0644)
+	if err != nil {
+		return "", err
+	}
+
+	mtlFilePath := filepath.Join(filepath.Dir(filePath), mtlFileName)
+	err = os.WriteFile(mtlFilePath, []byte(mtlContent), 0644)
 	if err != nil {
 		return "", err
 	}

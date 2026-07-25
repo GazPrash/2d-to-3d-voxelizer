@@ -12,6 +12,7 @@ function App() {
   const [error, setError] = useState<string | null>(null);
   const [viewState, setViewState] = useState<'main' | 'loading' | 'viewer'>('main');
   const [objContent, setObjContent] = useState<string>('');
+  const [mtlContent, setMtlContent] = useState<string>('');
   const [mode, setMode] = useState('auto'); // auto, single, dual, quad
   const [repeated, setRepeated] = useState(false);
   const [shape, setShape] = useState('rounded'); // rounded, flat
@@ -136,7 +137,7 @@ function App() {
 
     if (!base64String) return;
 
-    const [objStr, processErr] = await ProcessImage(base64String, settings).then(v => [v, null] as const).catch(e => [null, e] as const);
+    const [modelOutput, processErr] = await ProcessImage(base64String, settings).then(v => [v, null] as const).catch(e => [null, e] as const);
 
     if (processErr) {
       console.error("Generation error:", processErr);
@@ -145,8 +146,9 @@ function App() {
       return;
     }
 
-    if (objStr) {
-      setObjContent(objStr);
+    if (modelOutput) {
+      setObjContent(modelOutput.objContent);
+      setMtlContent(modelOutput.mtlContent);
       setViewState('viewer');
     }
   };
@@ -176,11 +178,19 @@ function App() {
   }
 
   if (viewState === 'viewer') {
-    return <Viewer objContent={objContent} onBack={() => {
-      setObjContent('');
-      setViewState('main');
-      FreeMemory();
-    }} onGenerateAgain={handleGenerate} />;
+    return (
+      <Viewer
+        objContent={objContent}
+        mtlContent={mtlContent}
+        onBack={() => {
+          setObjContent('');
+          setMtlContent('');
+          setViewState('main');
+          FreeMemory();
+        }}
+        onGenerateAgain={handleGenerate}
+      />
+    );
   }
 
   return (
