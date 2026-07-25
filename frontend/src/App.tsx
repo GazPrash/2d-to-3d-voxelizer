@@ -262,7 +262,7 @@ function App() {
                   style={{ cursor: 'pointer', margin: 0 }}
                 />
                 <label htmlFor="repeated-texture-checkbox" style={{ fontSize: '0.85rem', color: '#475569', margin: 0, cursor: 'pointer' }}>
-                  Use repeated texture <span style={{ opacity: 0.6, fontSize: '0.75rem', marginLeft: '6px' }}>(Display on all 4 sides)</span>
+                  Use repeated texture <span style={{ opacity: 0.6, fontSize: '0.75rem', marginLeft: '6px' }}>(Display the same sprite on Front and Back)</span>
                 </label>
               </div>
             )}
@@ -285,7 +285,7 @@ function App() {
                           if (newShape === 'flat') {
                             setDepthScale(1.0); // set default 1:1 scale for flat shapes
                           } else if (newShape === 'rounded') {
-                            setDepthScale(0.4); // restore default depth scale
+                            setDepthScale(0.8); // restore default depth scale
                           }
                         }}
                         disabled={mode === 'quad' || mode === 'six-sided'}
@@ -449,7 +449,7 @@ function App() {
                 setBiasedScaleTop(1.0);
                 setBiasedScaleMiddle(1.0);
                 setBiasedScaleBottom(1.0);
-                setDepthScale(0.4);
+                setDepthScale(0.8);
                 setFlatDepth(5.0);
                 setVoxelScale(1.0);
                 setCapsulePower(0.85);

@@ -6,6 +6,6 @@ const (
 	SpatialPrimeY = 19349669
 	SpatialPrimeZ = 83492791
 
-	MaxImageWidth  = 256
-	MaxImageHeight = 256
+	MaxImageWidth  = 1024
+	MaxImageHeight = 1024
 )
