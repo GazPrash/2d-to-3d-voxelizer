@@ -323,12 +323,12 @@ export default function Viewer({ objContent, mtlContent, onBack, onGenerateAgain
       </div>
 
       <div style={{ width: '100%', maxWidth: '56.25rem', display: 'flex', justifyContent: 'center', gap: '1rem', alignItems: 'center' }}>
-        <button className="btn-small-rounded btn-accent" onClick={onBack} style={{ cursor: 'pointer' }}>
+        <button className="btn-small-rounded" onClick={onBack} style={{ cursor: 'pointer' }}>
           ← Back to Generator
         </button>
 
         <button 
-          className="btn-small-rounded btn-generate" 
+          className="btn-small-rounded btn-sage" 
           onClick={onGenerateAgain} 
           style={{ cursor: 'pointer' }}
         >
