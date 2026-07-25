@@ -5,3 +5,4 @@ frontend/dist
 *.obj
 *.app
 *.exe
+*.syso
