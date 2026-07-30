@@ -1,2 +1,1 @@
-frontend/** linguist-vendored
-frontend/src/** -linguist-vendored
+frontend/wailsjs/runtime/** linguist-vendored
