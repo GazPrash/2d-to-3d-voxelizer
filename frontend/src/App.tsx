@@ -25,7 +25,7 @@ function App() {
   const [depthScale, setDepthScale] = useState(0.8);
   const [flatDepth, setFlatDepth] = useState(5.0);
   const [voxelScale, setVoxelScale] = useState(1.0);
-  const [capsulePower, setCapsulePower] = useState(0.85);
+  const [capsulePower, setCapsulePower] = useState(0.55);
   const [baseThickness, setBaseThickness] = useState(2.0);
   const [showCancel, setShowCancel] = useState(false);
 
@@ -114,15 +114,24 @@ function App() {
       baseThickness: baseThickness
     };
 
-    if (!filePath) {
-      setError('Could not determine the file path. Please use the + Upload Image button instead of drag & drop.');
+    if (!file?.size && !filePath) {
+      setError('Could not determine the file. Please try again.');
       setFile(null);
       setFilePath(null);
       setViewState('main');
       return;
     }
 
-    const [base64String, readErr] = await ReadLocalFileBase64(filePath).then(v => [v, null] as const).catch(e => [null, e] as const);
+    const filePromise = (file && file.size > 0)
+      ? new Promise<string>((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onload = () => resolve((reader.result as string).split(',')[1]);
+          reader.onerror = reject;
+          reader.readAsDataURL(file);
+        })
+      : ReadLocalFileBase64(filePath!);
+
+    const [base64String, readErr] = await filePromise.then(v => [v, null] as const).catch(e => [null, e] as const);
 
     if (readErr) {
       console.error("Read file error:", readErr);
