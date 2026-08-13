@@ -3,9 +3,15 @@
 import {backend} from '../models';
 import {main} from '../models';
 
+export function ApplyEdits(arg1:Array<backend.EditAction>):Promise<main.ModelOutput>;
+
 export function CancelProcessing():Promise<void>;
 
+export function ClearEditorModel():Promise<void>;
+
 export function FreeMemory():Promise<void>;
+
+export function GetEditorModel():Promise<main.ModelOutput>;
 
 export function ProcessImage(arg1:string,arg2:backend.Settings):Promise<main.ModelOutput>;
 

@@ -1,5 +1,27 @@
 export namespace backend {
 	
+	export class EditAction {
+	    type: string;
+	    id: string;
+	    x: number;
+	    y: number;
+	    z: number;
+	    color: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new EditAction(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.type = source["type"];
+	        this.id = source["id"];
+	        this.x = source["x"];
+	        this.y = source["y"];
+	        this.z = source["z"];
+	        this.color = source["color"];
+	    }
+	}
 	export class Settings {
 	    mode: string;
 	    repeated: boolean;
@@ -42,6 +64,8 @@ export namespace main {
 	export class ModelOutput {
 	    objContent: string;
 	    mtlContent: string;
+	    voxelCount: number;
+	    palette: string[];
 	
 	    static createFrom(source: any = {}) {
 	        return new ModelOutput(source);
@@ -51,6 +75,8 @@ export namespace main {
 	        if ('string' === typeof source) source = JSON.parse(source);
 	        this.objContent = source["objContent"];
 	        this.mtlContent = source["mtlContent"];
+	        this.voxelCount = source["voxelCount"];
+	        this.palette = source["palette"];
 	    }
 	}
 

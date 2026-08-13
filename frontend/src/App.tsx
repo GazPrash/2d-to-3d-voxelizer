@@ -1,6 +1,6 @@
 import { useState, useEffect, DragEvent, ChangeEvent } from 'react';
 import './App.css';
-import { ProcessImage, CancelProcessing, FreeMemory, ReadLocalFileBase64, SelectImage } from '../wailsjs/go/main/App';
+import { ProcessImage, CancelProcessing, FreeMemory, ReadLocalFileBase64, SelectImage, ClearEditorModel } from '../wailsjs/go/main/App';
 import Viewer from './Viewer';
 
 
@@ -13,6 +13,8 @@ function App() {
   const [viewState, setViewState] = useState<'main' | 'loading' | 'viewer'>('main');
   const [objContent, setObjContent] = useState<string>('');
   const [mtlContent, setMtlContent] = useState<string>('');
+  const [voxelCount, setVoxelCount] = useState<number>(0);
+  const [palette, setPalette] = useState<string[]>([]);
   const [mode, setMode] = useState('auto'); // auto, single, dual, quad
   const [repeated, setRepeated] = useState(false);
   const [shape, setShape] = useState('rounded'); // rounded, flat
@@ -33,7 +35,7 @@ function App() {
       setShowCancel(false);
       timer = setTimeout(() => {
         setShowCancel(true);
-      }, 20000);
+      }, 4000);
     } else {
       setShowCancel(false);
     }
@@ -70,12 +72,6 @@ function App() {
     setIsDragging(false);
     if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
       handleFileSelection(e.dataTransfer.files[0]);
-    }
-  };
-
-  const onFileChange = (e: ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files && e.target.files.length > 0) {
-      handleFileSelection(e.target.files[0]);
     }
   };
 
@@ -149,6 +145,8 @@ function App() {
     if (modelOutput) {
       setObjContent(modelOutput.objContent);
       setMtlContent(modelOutput.mtlContent);
+      setVoxelCount(modelOutput.voxelCount);
+      setPalette(modelOutput.palette || []);
       setViewState('viewer');
     }
   };
@@ -182,10 +180,14 @@ function App() {
       <Viewer
         objContent={objContent}
         mtlContent={mtlContent}
+        voxelCount={voxelCount}
+        palette={palette}
         onBack={() => {
           setObjContent('');
           setMtlContent('');
+          setVoxelCount(0);
           setViewState('main');
+          ClearEditorModel();
           FreeMemory();
         }}
         onGenerateAgain={handleGenerate}
