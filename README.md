@@ -15,7 +15,8 @@ a downside, which is this method may not be very useful for complicated pixel ar
 The tree art in the image and video was taken for the demo from here: https://graphscriptdev.itch.io/plant-trees?download
 
 ## Modes
-<img width="618" height="611" alt="app_preview" src="https://github.com/user-attachments/assets/c1e864cd-f00c-4242-be31-d49e72670820" />
+
+<img width="700" height="377" alt="image" src="https://github.com/user-attachments/assets/b692fe92-fc10-46d3-97a3-51110204a298" />
 
 the app supports various generation modes based on the type of sprite input;
 
@@ -54,6 +55,11 @@ Depth scaling controls the thickness and depth structure of the generated voxels
 
 - **Default Scaling**: The default depth generation creates natural, rounded contours by calculating the thickness based on the sprite's silhouette. This works bethe depth axis to create a solid object.st for rounded or organic objects.
 - **Biased Depth Scaling**: You should use biased depth scaling when your object has varying shapes or requires specific depth fine-tuning. This feature allows you to manually adjust (bias) the depth scale at the **top**, **middle**, and **bottom** sections of the sprite, giving you more precise control over the 3D geometry rather than relying solely on the default rounded interpolation.
+
+## [NEW!] Editor Mode
+Any reasonable sized-voxel model is now editable, this can be useful for fixing in-accuracies of the model due to the generation process, note that we use simple math algorithms based approach for the generation hence, it is not always perfect and sometimes can be limited, hence the editor mode was added with the hope that this might fix some of these issues.
+
+<img width="700" height="377" alt="image" src="https://github.com/user-attachments/assets/d67d87c7-b800-4798-87fb-a58a07f0d4ec" />
 
 ## Download
 Checkout https://github.com/GazPrash/2d-to-3d-voxelizer/releases
