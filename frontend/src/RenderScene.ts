@@ -129,6 +129,13 @@ export function useRenderScene({
       MIDDLE: THREE.MOUSE.ROTATE,
       RIGHT: THREE.MOUSE.PAN
     };
+    controls.minDistance = 0.5;
+    controls.maxDistance = 100;
+    
+    // for orthographic camera
+    controls.minZoom = 0.1;
+    controls.maxZoom = 10;
+
     controlsRef.current = controls;
 
     if (isEditorMode) {
