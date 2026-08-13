@@ -30,10 +30,10 @@ func parseImage(base46Str string, settings Settings) (*InputImage, error) {
 	width := bounds.Max.X
 	height := bounds.Max.Y
 
-	if width > MaxImageWidth || height > MaxImageHeight {
-		logger.Infof("Image is too large (%dx%d), resizing to fit within %dx%d...", width, height, MaxImageWidth, MaxImageHeight)
+	if width > MAX_IMG_WIDTH || height > MAX_IMG_HEIGHT {
+		logger.Infof("Image is too large (%dx%d), resizing to fit within %dx%d...", width, height, MAX_IMG_WIDTH, MAX_IMG_HEIGHT)
 
-		img = resize.Thumbnail(uint(MaxImageWidth), uint(MaxImageHeight), img, resize.Lanczos3)
+		img = resize.Thumbnail(uint(MAX_IMG_WIDTH), uint(MAX_IMG_HEIGHT), img, resize.Lanczos3)
 		bounds = img.Bounds()
 		width = bounds.Max.X
 		height = bounds.Max.Y
