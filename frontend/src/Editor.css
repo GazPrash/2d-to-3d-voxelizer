@@ -1,0 +1,180 @@
+.app-container-editor {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1.5rem;
+  padding: 2rem;
+}
+
+.applying-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(255, 255, 255, 0.8);
+  z-index: 9999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.tool-btn {
+  transition: all 0.2s ease;
+  width: 28px;
+  height: 28px;
+  border-radius: 6px;
+  border: none;
+  background-color: transparent;
+  color: #64748b;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.tool-btn:hover {
+  transform: translateY(-1px);
+  background-color: #f1f5f9 !important;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.08);
+}
+
+.tool-btn:active {
+  transform: translateY(0);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+}
+
+.tool-btn-active:hover {
+  background-color: #e2e8f0 !important;
+}
+
+.tool-btn-brush {
+  border: 2px solid transparent;
+}
+.tool-btn-brush.tool-btn-active {
+  border-color: #3b82f6;
+  background-color: #eff6ff;
+}
+
+.tool-btn-eraser {
+  border: 2px solid transparent;
+}
+.tool-btn-eraser.tool-btn-active {
+  border-color: #ef4444;
+  background-color: #fef2f2;
+}
+
+.tool-btn-danger {
+  color: #ef4444;
+}
+
+.palette-color {
+  transition: all 0.2s ease;
+  width: 28px;
+  height: 28px;
+  border-radius: 4px;
+  cursor: pointer;
+  box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.1);
+  border: 1px solid #d1d5db;
+}
+
+.palette-color:hover {
+  transform: scale(1.1);
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.15) !important;
+  z-index: 10;
+}
+
+.palette-color.selected {
+  border: 3px solid #000;
+}
+
+.cursor-brush canvas {
+  cursor: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="white" stroke="black" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"></path></svg>') 2 22, crosshair !important;
+}
+
+.cursor-eraser canvas {
+  cursor: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="white" stroke="black" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m7 21-4.3-4.3c-1-1-1-2.5 0-3.4l9.6-9.6c1-1 2.5-1 3.4 0l5.6 5.6c1 1 1 2.5 0 3.4L13 21"></path><path d="M22 21H7"></path><path d="m5 11 9 9"></path></svg>') 2 22, crosshair !important;
+}
+
+.editor-workspace {
+  position: relative;
+  width: 100%;
+  max-width: 90rem;
+  height: 85vh;
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+  background-color: #A0A0A0;
+  border: 1px solid #d1d5db;
+}
+
+.editor-canvas-container {
+  width: 100%;
+  height: 100%;
+}
+
+.panel-container {
+  background-color: rgba(255, 255, 255, 0.65);
+  padding: 0.5rem;
+  border-radius: 8px;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+  backdrop-filter: blur(4px);
+  border: 1px solid #e2e8f0;
+}
+
+.panel-container-small {
+  padding: 0.25rem;
+}
+
+.palette-panel {
+  position: absolute;
+  top: 1rem;
+  left: 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.palette-grid {
+  display: grid;
+  gap: 0.25rem;
+  max-width: 180px;
+  max-height: 60vh;
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+
+.tools-panel {
+  position: absolute;
+  bottom: 1rem;
+  left: 1rem;
+  display: flex;
+  gap: 0.5rem;
+}
+
+.bottom-right-controls {
+  position: absolute;
+  bottom: 1rem;
+  right: 1rem;
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+.history-panel {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.actions-panel {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.footer-text {
+  position: absolute;
+  bottom: 1rem;
+  font-size: 0.75rem;
+  color: #1e293b;
+}
