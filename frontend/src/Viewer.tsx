@@ -3,258 +3,133 @@ import * as THREE from 'three';
 import { OBJLoader } from 'three/examples/jsm/loaders/OBJLoader.js';
 import { MTLLoader } from 'three/examples/jsm/loaders/MTLLoader.js';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
-import { SaveModel } from '../wailsjs/go/main/App';
+import { SaveModel, GetEditorModel, ClearEditorModel } from '../wailsjs/go/main/App';
+import Editor from './Editor';
+import { useRenderScene } from './RenderScene';
 
 interface ViewerProps {
   objContent: string;
   mtlContent: string;
+  voxelCount: number;
+  palette?: string[];
   onBack: () => void;
   onGenerateAgain: () => void;
 }
 
-export default function Viewer({ objContent, mtlContent, onBack, onGenerateAgain }: ViewerProps) {
+const MAX_EDITABLE_VOXELS = 50000;
+
+function ViewerScene({ objContent, mtlContent, isRenderMode, isIsometric }: any) {
   const mountRef = useRef<HTMLDivElement>(null);
+  useRenderScene({
+    mountRef,
+    objContent,
+    mtlContent,
+    isRenderMode,
+    isIsometric
+  });
+  return <div ref={mountRef} style={{ width: '100%', height: '100%' }} />;
+}
+
+export default function Viewer({ objContent, mtlContent, voxelCount, palette, onBack, onGenerateAgain }: ViewerProps) {
   const [isRenderMode, setIsRenderMode] = useState(false);
   const [isIsometric, setIsIsometric] = useState(false);
 
-  const handleSave = async () => {
-    const [savedPath, err] = await SaveModel(objContent, mtlContent).then(v => [v, null] as const).catch(e => [null, e] as const);
+  const [viewerMode, setViewerMode] = useState<'view' | 'edit'>('view');
+  const [isLoading, setIsLoading] = useState(false);
 
-    if (err) {
-      console.error('Failed to save model:', err);
+  const [editorObj, setEditorObj] = useState('');
+  const [editorMtl, setEditorMtl] = useState('');
+
+  const [currentObj, setCurrentObj] = useState(objContent);
+  const [currentMtl, setCurrentMtl] = useState(mtlContent);
+  const [currentCount, setCurrentCount] = useState(voxelCount);
+  const [currentPalette, setCurrentPalette] = useState<string[]>(palette || []);
+
+  useEffect(() => {
+    setCurrentObj(objContent);
+    setCurrentMtl(mtlContent);
+    setCurrentCount(voxelCount);
+    setCurrentPalette(palette || []);
+  }, [objContent, mtlContent, voxelCount, palette]);
+
+  const handleEditModeClick = async () => {
+    if (currentCount > MAX_EDITABLE_VOXELS) {
+      alert(`Editing is not supported for voxel models of this size (over ${MAX_EDITABLE_VOXELS.toLocaleString()} voxels).`);
       return;
     }
 
-    if (savedPath) {
-      console.log('Saved successfully to:', savedPath);
+    setIsLoading(true);
+    try {
+      const result = await GetEditorModel();
+      setEditorObj(result.objContent);
+      setEditorMtl(result.mtlContent);
+      setViewerMode('edit');
+    } catch (e) {
+      alert("Failed to load editor model: " + String(e));
+    } finally {
+      setIsLoading(false);
     }
   };
 
-  useEffect(() => {
-    if (!mountRef.current) return;
-
-    const scene = new THREE.Scene();
-    scene.background = isRenderMode ? new THREE.Color(0xfdecd2) : new THREE.Color(0xf0f4f8);
-
-    const width = mountRef.current.clientWidth;
-    const height = mountRef.current.clientHeight;
-
-    let camera: THREE.PerspectiveCamera | THREE.OrthographicCamera;
-    if (isIsometric) {
-      const aspect = width / height;
-      const frustumSize = 10;
-      camera = new THREE.OrthographicCamera(frustumSize * aspect / -2, frustumSize * aspect / 2, frustumSize / 2, frustumSize / -2, 0.1, 1000);
-      camera.position.set(10, 10, 10);
-    } else {
-      camera = new THREE.PerspectiveCamera(75, width / height, 0.1, 1000);
-      camera.position.set(0, 2, 5);
+  const handleSave = async () => {
+    try {
+      const [savedPath, err] = await SaveModel(currentObj, currentMtl).then(v => [v, null] as const).catch(e => [null, e] as const);
+      if (err) {
+        console.error('Failed to save model:', err);
+      } else if (savedPath) {
+        console.log('Saved successfully to:', savedPath);
+      }
+    } catch (e) {
+      console.error(e);
     }
-    camera.lookAt(0, 0, 0);
+  };
 
-    const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
-    renderer.setSize(width, height);
-    renderer.setPixelRatio(window.devicePixelRatio);
-    mountRef.current.appendChild(renderer.domElement);
-
-    const ambientLight = new THREE.AmbientLight(0xffffff, 1.2);
-    scene.add(ambientLight);
-
-    const directionalLight = new THREE.DirectionalLight(0xffffff, 1.5);
-    directionalLight.position.set(10, 20, 10);
-    scene.add(directionalLight);
-
-    const backLight = new THREE.DirectionalLight(0xffffff, 0.8);
-    backLight.position.set(-10, 10, -10);
-    scene.add(backLight);
-
-    if (isRenderMode) {
-      renderer.shadowMap.enabled = true;
-      renderer.shadowMap.type = THREE.PCFSoftShadowMap;
-
-      directionalLight.castShadow = true;
-      directionalLight.shadow.mapSize.width = 2048;
-      directionalLight.shadow.mapSize.height = 2048;
-      directionalLight.shadow.camera.near = 0.5;
-      directionalLight.shadow.camera.far = 50;
-      directionalLight.shadow.camera.left = -10;
-      directionalLight.shadow.camera.right = 10;
-      directionalLight.shadow.camera.top = 10;
-      directionalLight.shadow.camera.bottom = -10;
-      directionalLight.shadow.bias = -0.0005;
-
-      const planeGeometry = new THREE.PlaneGeometry(100, 100);
-      
-      const canvas = document.createElement('canvas');
-      canvas.width = 512;
-      canvas.height = 512;
-      const context = canvas.getContext('2d');
-      if (context) {
-        context.fillStyle = '#f5f5dc'; 
-        context.fillRect(0, 0, 512, 512);
-        context.fillStyle = '#e6e6cc'; 
-        context.fillRect(0, 0, 256, 256);
-        context.fillRect(256, 256, 256, 256);
-      }
-      const checkerTexture = new THREE.CanvasTexture(canvas);
-      checkerTexture.wrapS = THREE.RepeatWrapping;
-      checkerTexture.wrapT = THREE.RepeatWrapping;
-      checkerTexture.repeat.set(50, 50); 
-
-      const planeMaterial = new THREE.MeshStandardMaterial({ 
-        map: checkerTexture,
-        roughness: 0.9,
-        metalness: 0.1
-      });
-      const plane = new THREE.Mesh(planeGeometry, planeMaterial);
-      plane.rotation.x = -Math.PI / 2;
-      plane.position.y = -1.5;
-      plane.receiveShadow = true;
-      scene.add(plane);
-    } else {
-      const gridHelper = new THREE.GridHelper(10, 20, 0xaaaaaa, 0xe0e0e0);
-      gridHelper.position.y = -1.5;
-      scene.add(gridHelper);
-    }
-
-    const controls = new OrbitControls(camera, renderer.domElement);
-    controls.enableDamping = true;
-
-    const mtlBlob = new Blob([mtlContent], { type: 'text/plain' });
-    const mtlUrl = URL.createObjectURL(mtlBlob);
-
-    const blob = new Blob([objContent], { type: 'text/plain' });
-    const url = URL.createObjectURL(blob);
-
-    const mtlLoader = new MTLLoader();
-    const objLoader = new OBJLoader();
-    
-    let loadedObjectGroup: THREE.Group | null = null;
-    
-    mtlLoader.load(mtlUrl, (materials) => {
-      materials.preload();
-      objLoader.setMaterials(materials);
-
-      objLoader.load(url, (obj) => {
-        const box = new THREE.Box3().setFromObject(obj);
-        const center = box.getCenter(new THREE.Vector3());
-        
-        obj.position.set(-center.x, -center.y, -center.z);
-
-        obj.traverse((child) => {
-          if ((child as THREE.Mesh).isMesh) {
-            const mesh = child as THREE.Mesh;
-            if (isRenderMode) {
-              if (Array.isArray(mesh.material)) {
-                mesh.material = mesh.material.map((m: any) => new THREE.MeshStandardMaterial({
-                  color: m.color || 0xffffff,
-                  roughness: 0.7,
-                  metalness: 0.1,
-                }));
-              } else {
-                const oldMat = mesh.material as any;
-                mesh.material = new THREE.MeshStandardMaterial({
-                  color: oldMat.color || 0xffffff,
-                  roughness: 0.7,
-                  metalness: 0.1,
-                });
-              }
-              mesh.castShadow = true;
-              mesh.receiveShadow = true;
-            }
-          }
-        });
-
-        const size = box.getSize(new THREE.Vector3());
-        const maxDim = Math.max(size.x, size.y, size.z);
-        const scale = 3 / (maxDim || 1); 
-
-        loadedObjectGroup = new THREE.Group();
-        loadedObjectGroup.add(obj);
-        loadedObjectGroup.scale.set(scale, scale, scale);
-        
-        scene.add(loadedObjectGroup);
-        
-        URL.revokeObjectURL(url);
-        URL.revokeObjectURL(mtlUrl);
-      });
-    });
-
-    let animationId: number;
-    const animate = () => {
-      animationId = requestAnimationFrame(animate);
-      controls.update();
-      renderer.render(scene, camera);
-    };
-    animate();
-
-    const handleResize = () => {
-      if (!mountRef.current) return;
-      const w = mountRef.current.clientWidth;
-      const h = mountRef.current.clientHeight;
-      renderer.setSize(w, h);
-
-      if (isIsometric) {
-        const orthoCamera = camera as THREE.OrthographicCamera;
-        const aspect = w / h;
-        const frustumSize = 10;
-        orthoCamera.left = frustumSize * aspect / -2;
-        orthoCamera.right = frustumSize * aspect / 2;
-        orthoCamera.top = frustumSize / 2;
-        orthoCamera.bottom = frustumSize / -2;
-        orthoCamera.updateProjectionMatrix();
-      } else {
-        const perspCamera = camera as THREE.PerspectiveCamera;
-        perspCamera.aspect = w / h;
-        perspCamera.updateProjectionMatrix();
-      }
-    };
-    window.addEventListener('resize', handleResize);
-
-    return () => {
-      window.removeEventListener('resize', handleResize);
-      cancelAnimationFrame(animationId);
-      if (mountRef.current && renderer.domElement) {
-        mountRef.current.removeChild(renderer.domElement);
-      }
-
-      // objHelper library has it's nuances and sometimes it may leave return more than one mesh while loading, so this is just a brute force method
-      // to ensure that all the meshes and their materials are cleaned up
-      scene.traverse((object) => {
-        if ((object as THREE.Mesh).isMesh) {
-          const mesh = object as THREE.Mesh;
-          if (mesh.geometry) {
-            mesh.geometry.dispose();
-          }
-          if (mesh.material) {
-            if (Array.isArray(mesh.material)) {
-              mesh.material.forEach(material => material.dispose());
-            } else {
-              mesh.material.dispose();
-            }
-          }
-        }
-      });
-
-      renderer.dispose();
-      scene.clear();
-    };
-  }, [objContent, isRenderMode, isIsometric]);
+  if (viewerMode === 'edit') {
+    return (
+      <Editor
+        objContent={editorObj}
+        mtlContent={editorMtl}
+        isIsometric={isIsometric}
+        palette={currentPalette}
+        onDone={async (newObj, newMtl, newCount, newPalette) => {
+          setCurrentObj(newObj);
+          setCurrentMtl(newMtl);
+          if (newPalette) setCurrentPalette(newPalette);
+          setViewerMode('view');
+        }}
+        onCancel={async () => {
+          setViewerMode('view');
+        }}
+      />
+    );
+  }
 
   return (
     <div className="app-container" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '1.5rem', padding: '2rem' }}>
+
+      {isLoading && (
+        <div style={{
+          position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+          backgroundColor: 'rgba(255,255,255,0.8)', zIndex: 9999,
+          display: 'flex', alignItems: 'center', justifyContent: 'center'
+        }}>
+          <h2>Loading Editor Mode...</h2>
+        </div>
+      )}
+
       <div style={{
         position: 'relative',
-        width: '100%', 
-        maxWidth: '56.25rem', 
-        height: '65vh', 
+        width: '100%',
+        maxWidth: '75rem',
+        height: '75vh',
         borderRadius: '12px',
         overflow: 'hidden',
         boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)',
-        backgroundColor: '#ffffff', 
+        backgroundColor: '#A0A0A0',
         border: '1px solid #d1d5db',
       }}>
-        <div ref={mountRef} style={{ width: '100%', height: '100%' }} />
-        
+        <ViewerScene objContent={currentObj} mtlContent={currentMtl} isRenderMode={isRenderMode} isIsometric={isIsometric} />
+
         {/* Floating Options inside Viewer */}
         <div style={{
           position: 'absolute',
@@ -265,22 +140,9 @@ export default function Viewer({ objContent, mtlContent, onBack, onGenerateAgain
           gap: '0.75rem',
         }}>
           <button
+            className={`icon-btn ${isRenderMode ? 'active active-yellow' : ''}`}
             onClick={() => setIsRenderMode(!isRenderMode)}
             title="Toggle Render Mode"
-            style={{
-              width: '40px',
-              height: '40px',
-              borderRadius: '8px',
-              border: '1px solid #e2e8f0',
-              backgroundColor: isRenderMode ? '#f1f5f9' : '#ffffff',
-              boxShadow: '0 2px 4px rgba(0,0,0,0.05)',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              cursor: 'pointer',
-              color: isRenderMode ? '#eab308' : '#64748b',
-              transition: 'all 0.2s ease'
-            }}
           >
             <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <circle cx="12" cy="12" r="4"></circle>
@@ -296,22 +158,9 @@ export default function Viewer({ objContent, mtlContent, onBack, onGenerateAgain
           </button>
 
           <button
+            className={`icon-btn ${isIsometric ? 'active' : ''}`}
             onClick={() => setIsIsometric(!isIsometric)}
             title="Toggle Isometric View"
-            style={{
-              width: '40px',
-              height: '40px',
-              borderRadius: '8px',
-              border: '1px solid #e2e8f0',
-              backgroundColor: isIsometric ? '#f1f5f9' : '#ffffff',
-              boxShadow: '0 2px 4px rgba(0,0,0,0.05)',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              cursor: 'pointer',
-              color: isIsometric ? '#3b82f6' : '#64748b',
-              transition: 'all 0.2s ease'
-            }}
           >
             <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path>
@@ -320,24 +169,38 @@ export default function Viewer({ objContent, mtlContent, onBack, onGenerateAgain
             </svg>
           </button>
         </div>
+
+        {/* Edit Button */}
+        <div style={{ position: 'absolute', top: '1rem', left: '1rem', zIndex: 10 }}>
+          <button
+            className="btn-small-rounded btn-edit"
+            onClick={handleEditModeClick}
+            disabled={currentCount > MAX_EDITABLE_VOXELS}
+            title={currentCount > MAX_EDITABLE_VOXELS ? 'Model too large to edit' : 'Edit Model'}
+          >
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 20h9"></path><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"></path></svg>
+            Edit Model {currentCount > MAX_EDITABLE_VOXELS && '(Too Large)'}
+          </button>
+        </div>
+
       </div>
 
-      <div style={{ width: '100%', maxWidth: '56.25rem', display: 'flex', justifyContent: 'center', gap: '1rem', alignItems: 'center' }}>
+      <div style={{ width: '100%', maxWidth: '75rem', display: 'flex', justifyContent: 'center', gap: '1rem', alignItems: 'center' }}>
         <button className="btn-small-rounded" onClick={onBack} style={{ cursor: 'pointer' }}>
           ← Back to Generator
         </button>
 
-        <button 
-          className="btn-small-rounded btn-sage" 
-          onClick={onGenerateAgain} 
+        <button
+          className="btn-small-rounded btn-sage"
+          onClick={onGenerateAgain}
           style={{ cursor: 'pointer' }}
         >
           Generate Again?
         </button>
 
-        <button 
-          className="btn-small-rounded btn-save" 
-          onClick={handleSave} 
+        <button
+          className="btn-small-rounded btn-save"
+          onClick={handleSave}
           style={{ cursor: 'pointer' }}
         >
           Save Model As
@@ -345,7 +208,7 @@ export default function Viewer({ objContent, mtlContent, onBack, onGenerateAgain
       </div>
 
       <div style={{ position: 'absolute', bottom: '1rem', fontSize: '0.75rem', color: '#1e293b' }}>
-        made with ♥  by GazPrash
+        made with ♥ by GazPrash
       </div>
     </div>
   );
