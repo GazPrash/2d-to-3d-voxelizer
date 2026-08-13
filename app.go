@@ -13,28 +13,35 @@
 package main
 
 import (
+	"archive/zip"
+	"bytes"
 	"context"
 	"encoding/base64"
+	"fmt"
 	"log"
 	"os"
 	"path/filepath"
 	"pix2dTo3dApp/backend"
-	"sync"
-
 	"strings"
+	"sync"
 
 	"github.com/wailsapp/wails/v2/pkg/runtime"
 )
 
 type ModelOutput struct {
-	ObjContent string `json:"objContent"`
-	MtlContent string `json:"mtlContent"`
+	ObjContent string   `json:"objContent"`
+	MtlContent string   `json:"mtlContent"`
+	VoxelCount int      `json:"voxelCount"`
+	Palette    []string `json:"palette"`
 }
 
 type App struct {
 	ctx    context.Context
 	cancel context.CancelFunc
 	mu     sync.Mutex
+
+	currentVoxelMap *backend.VoxelMap
+	currentSettings backend.Settings
 }
 
 func NewApp() *App {
@@ -78,43 +85,127 @@ func (a *App) ProcessImage(base64ImageData string, settings backend.Settings) (M
 		a.mu.Unlock()
 	}()
 
-	tempFile := filepath.Join(os.TempDir(), "pix2d_out_temp.obj")
-	tempMtlFile := filepath.Join(os.TempDir(), "pix2d_out_temp.mtl")
-	err := backend.ConvertTo3D(jobCtx, base64ImageData, settings, tempFile)
+	/*
+		Currently due to the addition of the Editor mode, we are by default creating non-culled voxel maps
+		from the input image. The voxel map future is depended on the following two cases:
+
+			[1] If the total num of expected voxels are bound to be more than 50k, then we delete the voxel map immediately
+					after creation (the subsequent GC cleanup happens async), and we do this because we are forced to
+					create a non-culled voxel map, and even though we dont allow editing of the 3D model,
+					we still allow generation and saving, so re-generating the voxel is a slightly better approach
+					then letting the voxel map sit on the ram.
+
+					In future we might switch to following impls:
+						[A] Generate two different types of voxel maps (culled and non-culled faces) for our use case,
+								and then generate meshes accordingly, should be able to keep both in memory.
+								That would include implementing a dual behaviour within the GenerateMesh function to operate on
+								both culled and non-culled voxel maps.
+						[B] Save the generated voxel maps in some sort of format or data structure on storage and then re-load or re-read it
+								instead of re-generating it. Process could be slower in HDDs will have to test.
+
+			[2] If the numbero of voxels are expected to be less than the 50k limit, then we allow the voxel map to be retained in the memory
+					whilst still following the 2GB ram cap, without any performance downsides,
+					so editing and then switchin back to Viewer should be seamless.
+
+	*/
+
+	vmap, voxelCount, err := backend.ConvertTo3D(jobCtx, base64ImageData, settings)
 	if err != nil {
 		log.Printf("Failed to convert the input file; Err: %v", err)
 		return ModelOutput{}, err
 	}
 
-	objData, err := os.ReadFile(tempFile)
+	a.mu.Lock()
+	a.currentVoxelMap = vmap
+	a.currentSettings = settings
+	a.mu.Unlock()
+
+	objData, mtlData, err := backend.GenerateMesh(jobCtx, vmap, settings, true) // cullFaces=true
 	if err != nil {
-		log.Printf("Failed to read the created object file; Err: %v", err)
+		log.Printf("Failed to generate mesh; Err: %v", err)
 		return ModelOutput{}, err
 	}
-	
-	mtlData, err := os.ReadFile(tempMtlFile)
-	if err != nil {
-		log.Printf("Failed to read the created mtl file; Err: %v", err)
-		return ModelOutput{}, err
+
+	if voxelCount > backend.MAX_EDITABLE_VOXELS {
+		a.ClearEditorModel()
 	}
-	
-	os.Remove(tempFile)
-	os.Remove(tempMtlFile)
 
 	return ModelOutput{
-		ObjContent: string(objData),
-		MtlContent: string(mtlData),
+		ObjContent: objData,
+		MtlContent: mtlData,
+		VoxelCount: voxelCount,
+		Palette:    vmap.Palette,
+	}, nil
+}
+
+func (a *App) GetEditorModel() (ModelOutput, error) {
+	a.mu.Lock()
+	vmap := a.currentVoxelMap
+	settings := a.currentSettings
+	a.mu.Unlock()
+
+	if vmap == nil {
+		return ModelOutput{}, fmt.Errorf("no model loaded")
+	}
+
+	objData, mtlData, err := backend.GenerateMesh(a.ctx, vmap, settings, false) // cullFaces=false
+	if err != nil {
+		return ModelOutput{}, err
+	}
+
+	return ModelOutput{
+		ObjContent: objData,
+		MtlContent: mtlData,
+		VoxelCount: 0,
+	}, nil
+}
+
+func (a *App) ClearEditorModel() {
+	a.mu.Lock()
+	if a.currentVoxelMap != nil {
+		a.currentVoxelMap.Clear()
+		a.currentVoxelMap = nil
+	}
+	a.mu.Unlock()
+
+	go a.FreeMemory()
+}
+
+func (a *App) ApplyEdits(edits []backend.EditAction) (ModelOutput, error) {
+	a.mu.Lock()
+	vmap := a.currentVoxelMap
+	settings := a.currentSettings
+	a.mu.Unlock()
+
+	if vmap == nil {
+		return ModelOutput{}, fmt.Errorf("no model loaded")
+	}
+
+	err := backend.ApplyEditsToVoxelMap(vmap, edits)
+	if err != nil {
+		return ModelOutput{}, err
+	}
+
+	objData, mtlData, err := backend.GenerateMesh(a.ctx, vmap, settings, true) // cullFaces=true
+	if err != nil {
+		return ModelOutput{}, err
+	}
+
+	return ModelOutput{
+		ObjContent: objData,
+		MtlContent: mtlData,
+		VoxelCount: 0,
 	}, nil
 }
 
 func (a *App) SaveModel(objContent string, mtlContent string) (string, error) {
 	filePath, err := runtime.SaveFileDialog(a.ctx, runtime.SaveDialogOptions{
-		Title:           "Save 3D Model",
-		DefaultFilename: "model.obj",
+		Title:           "Save 3D Model Archive",
+		DefaultFilename: "model.zip",
 		Filters: []runtime.FileFilter{
 			{
-				DisplayName: "Wavefront OBJ (*.obj)",
-				Pattern:     "*.obj",
+				DisplayName: "Zip Archive (*.zip)",
+				Pattern:     "*.zip",
 			},
 		},
 	})
@@ -122,20 +213,42 @@ func (a *App) SaveModel(objContent string, mtlContent string) (string, error) {
 		return "", err
 	}
 	if filePath == "" {
-		// in case of cancellation by user
 		return "", nil
 	}
 
-	mtlFileName := strings.TrimSuffix(filepath.Base(filePath), ".obj") + ".mtl"
+	baseName := strings.TrimSuffix(filepath.Base(filePath), ".zip")
+	if baseName == "" {
+		baseName = "model"
+	}
+	objFileName := baseName + ".obj"
+	mtlFileName := baseName + ".mtl"
+
 	finalObjContent := strings.Replace(objContent, "mtllib placeholder.mtl", "mtllib "+mtlFileName, 1)
 
-	err = os.WriteFile(filePath, []byte(finalObjContent), 0644)
+	var buf bytes.Buffer
+	zipWriter := zip.NewWriter(&buf)
+
+	objWriter, err := zipWriter.Create(objFileName)
 	if err != nil {
 		return "", err
 	}
+	if _, err := objWriter.Write([]byte(finalObjContent)); err != nil {
+		return "", err
+	}
 
-	mtlFilePath := filepath.Join(filepath.Dir(filePath), mtlFileName)
-	err = os.WriteFile(mtlFilePath, []byte(mtlContent), 0644)
+	mtlWriter, err := zipWriter.Create(mtlFileName)
+	if err != nil {
+		return "", err
+	}
+	if _, err := mtlWriter.Write([]byte(mtlContent)); err != nil {
+		return "", err
+	}
+
+	if err := zipWriter.Close(); err != nil {
+		return "", err
+	}
+
+	err = os.WriteFile(filePath, buf.Bytes(), 0644)
 	if err != nil {
 		return "", err
 	}

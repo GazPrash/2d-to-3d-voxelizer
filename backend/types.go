@@ -8,6 +8,12 @@ type RGB struct {
 	r, g, b uint8
 }
 
+type colorBox struct {
+	colors []RGB
+	min    RGB
+	max    RGB
+}
+
 type Mode int
 
 const (
@@ -16,6 +22,8 @@ const (
 	QUAD
 	SIX_SIDED
 )
+
+type Vertex struct{ x, y, z float64 }
 
 type Voxel struct {
 	Color        RGB
@@ -39,7 +47,7 @@ type Settings struct {
 	BiasedScaleBottom    float64 `json:"biasedScaleBottom"`
 	DepthScale           float64 `json:"depthScale"`
 	FlatDepth            float64 `json:"flatDepth"`
-	VoxelScale           float64 `json:"voxelScale"` // scale factor for global voxel size (1.0 to 3.0)
+	VoxelScale           float64 `json:"voxelScale"`
 	CapsulePower         float64 `json:"capsulePower"`
 	BaseThickness        float64 `json:"baseThickness"`
 }
@@ -51,4 +59,13 @@ type InputImage struct {
 	bounds   image.Rectangle
 	width    int
 	height   int
+}
+
+type EditAction struct {
+	Type  string `json:"type"` // "erase" or "paint"
+	Id    string `json:"id"`
+	X     int    `json:"x"`
+	Y     int    `json:"y"`
+	Z     int    `json:"z"`
+	Color string `json:"color"`
 }

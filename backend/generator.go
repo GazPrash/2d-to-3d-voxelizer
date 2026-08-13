@@ -1,193 +1,14 @@
 package backend
 
 import (
-	"bufio"
 	"context"
-	"fmt"
 	"math"
-	"os"
-	"pix2dTo3dApp/backend/logger"
-	"strings"
 )
 
 /*
 	The aim of this service is to take an input image, user settings, and a 3d depth matrix
 	and then prepare a 3D obj model out of it based on the user chosen settings
 */
-
-type VoxelMap struct {
-	shards []voxelShard
-}
-
-type voxelShard struct {
-	m map[Vector3]Voxel
-}
-
-func NewVoxelMap(width int) *VoxelMap {
-	vm := &VoxelMap{
-		shards: make([]voxelShard, width),
-	}
-
-	for i := range width {
-		vm.shards[i].m = make(map[Vector3]Voxel, 1024)
-	}
-	return vm
-}
-
-func (vm *VoxelMap) Get(v Vector3) (Voxel, bool) {
-	if v.x < 0 || v.x >= len(vm.shards) {
-		return Voxel{}, false
-	}
-	val, ok := vm.shards[v.x].m[v]
-	return val, ok
-}
-
-func (vm *VoxelMap) Set(v Vector3, vox Voxel) {
-	if v.x >= 0 && v.x < len(vm.shards) {
-		vm.shards[v.x].m[v] = vox
-	}
-}
-
-// Clear drops all voxel data so the GC can reclaim the memory.
-func (vm *VoxelMap) Clear() {
-	for i := range len(vm.shards) {
-		vm.shards[i].m = nil
-	}
-}
-
-// helper to write a face to the .obj file;
-// caller must provide the current vertexIndex, we dont keep a global track
-// func returns the vidx, upto which the vertex has been updated + 1, caller must recv this to progress
-func writeFaceToObj(buf *bufio.Writer, settings Settings, vIdx int, v1, v2, v3, v4 [3]float64, col RGB) int {
-
-	z1 := v1[2] * settings.DepthScale
-	z2 := v2[2] * settings.DepthScale
-	z3 := v3[2] * settings.DepthScale
-	z4 := v4[2] * settings.DepthScale
-
-	// 4 vertices .obj format
-	fmt.Fprintf(buf, "v %.3f %.3f %.3f\n", v1[0], v1[1], z1)
-	fmt.Fprintf(buf, "v %.3f %.3f %.3f\n", v2[0], v2[1], z2)
-	fmt.Fprintf(buf, "v %.3f %.3f %.3f\n", v3[0], v3[1], z3)
-	fmt.Fprintf(buf, "v %.3f %.3f %.3f\n", v4[0], v4[1], z4)
-
-	fmt.Fprintf(buf, "usemtl mat_%d_%d_%d\n", col.r, col.g, col.b)
-	fmt.Fprintf(buf, "f %d %d %d %d\n", vIdx, vIdx+1, vIdx+2, vIdx+3)
-
-	return vIdx + 4
-}
-
-func writeVoxels(ctx context.Context, voxels *VoxelMap, settings Settings, outFile *string) error {
-	objFile, err := os.Create(*outFile)
-	if err != nil {
-		logger.Errorf("Failed to create %v. Err: %v", *outFile, err)
-		return err
-	}
-	defer objFile.Close()
-
-	mtlFileName := strings.TrimSuffix(*outFile, ".obj") + ".mtl"
-	if mtlFileName == *outFile {
-		mtlFileName += ".mtl"
-	}
-	mtlFile, err := os.Create(mtlFileName)
-	if err != nil {
-		logger.Errorf("Failed to create %v. Err: %v", mtlFileName, err)
-		return err
-	}
-	defer mtlFile.Close()
-
-	// 1MB buffers one for obj and the other one for mtl file
-	buf := bufio.NewWriterSize(objFile, 1024*1024)
-	defer buf.Flush()
-	mtlBuf := bufio.NewWriterSize(mtlFile, 1024*1024)
-	defer mtlBuf.Flush()
-
-	fmt.Fprintf(buf, "mtllib placeholder.mtl\n")
-
-	materials := make(map[RGB]bool)
-	vIdx := 1
-
-	// direction vectors for 6 faces of a cube
-	dirs := []Vector3{
-		{1, 0, 0}, {-1, 0, 0},
-		{0, 1, 0}, {0, -1, 0},
-		{0, 0, 1}, {0, 0, -1},
-	}
-
-	voxelCount := 0
-	for i := range len(voxels.shards) {
-		if ctx.Err() != nil {
-			return ctx.Err()
-		}
-		for pos, col := range voxels.shards[i].m {
-
-			voxelCount++
-			if voxelCount%4096 == 0 && ctx.Err() != nil {
-				return ctx.Err()
-			}
-
-			x, y, z := float64(pos.x), float64(pos.y), float64(pos.z)
-
-			for _, d := range dirs {
-				if _, exists := voxels.Get(Vector3{pos.x + d.x, pos.y + d.y, pos.z + d.z}); exists {
-					continue
-				}
-
-				dx, dy, dz := float64(d.x), float64(d.y), float64(d.z)
-				cx, cy, cz := x+dx*0.5, y+dy*0.5, z+dz*0.5
-				var ux, uy, uz, vx, vy, vz float64
-				switch {
-				case d.x != 0:
-					uy, vz = 0.5, dx*0.5
-				case d.y != 0:
-					uz, vx = 0.5, dy*0.5
-				case d.z != 0:
-					ux, vy = 0.5, dz*0.5
-				}
-
-				var faceColor RGB
-				switch {
-				case (col.IsQuad || col.IsSixSided) && d.x == -1:
-					faceColor = col.LeftColor
-				case (col.IsQuad || col.IsSixSided) && d.x == 1:
-					faceColor = col.RightColor
-				case col.IsSixSided && d.y == 1:
-					faceColor = col.TopColor
-				case col.IsSixSided && d.y == -1:
-					faceColor = col.BottomColor
-				default:
-					faceColor = col.Color
-				}
-
-				if col.OverrideRear && d.z == -1 {
-					faceColor = col.RearColor
-				}
-
-				if !materials[faceColor] {
-					materials[faceColor] = true
-					cr := float64(faceColor.r) / 255.0
-					cg := float64(faceColor.g) / 255.0
-					cb := float64(faceColor.b) / 255.0
-					fmt.Fprintf(mtlBuf, "newmtl mat_%d_%d_%d\n", faceColor.r, faceColor.g, faceColor.b)
-					fmt.Fprintf(mtlBuf, "Kd %.5f %.5f %.5f\n\n", cr, cg, cb)
-				}
-
-				vIdx = writeFaceToObj(
-					buf,
-					settings,
-					vIdx,
-					[3]float64{cx - ux + vx, cy - uy + vy, cz - uz + vz},
-					[3]float64{cx - ux - vx, cy - uy - vy, cz - uz - vz},
-					[3]float64{cx + ux - vx, cy + uy - vy, cz + uz - vz},
-					[3]float64{cx + ux + vx, cy + uy + vy, cz + uz + vz},
-					faceColor,
-				)
-			}
-		}
-	}
-
-	return nil
-}
 
 func computeAverageColor(img InputImage) RGB {
 	var sumR, sumG, sumB, count float64
@@ -263,7 +84,7 @@ func getSideColors(img InputImage, z, d, j int) (left, right RGB, aL, aR uint32)
 
 // helper function for spatial hashing
 func spatialHash3D(x, y, z int) float64 {
-	h := uint32(x*SpatialPrimeX) ^ uint32(y*SpatialPrimeY) ^ uint32(z*SpatialPrimeZ)
+	h := uint32(x*SPATIAL_PRIME_X) ^ uint32(y*SPATIAL_PRIME_Y) ^ uint32(z*SPATIAL_PRIME_Z)
 	return float64(h%1000) / 1000.0
 }
 
@@ -324,7 +145,8 @@ func populateVoxelsColumn(
 			}
 			/*
 				we just use a simple spatial hasher instead of stateful randomizer for speed and avoiding sequence issues
-				more info:
+				whilst also making the skipping process deterministic so the user doesn't get different results on
+				different generations; more info:
 						[1] https://carmencincotti.com/2022-10-31/spatial-hash-maps-part-one/
 						[2] https://en.wikipedia.org/wiki/Geometric_hashing
 			*/
@@ -432,7 +254,7 @@ func computeEdgeDistX(img InputImage) [][]int {
 	return edgeDist
 }
 
-func generate3DModel(ctx context.Context, inpImage InputImage, depths *[][]int, outFile *string) error {
+func generate3DModel(ctx context.Context, inpImage InputImage, depths *[][]int) (*VoxelMap, error) {
 	var avgColor RGB
 	if inpImage.mode == SINGLE && !inpImage.settings.Repeated {
 		avgColor = computeAverageColor(inpImage)
@@ -443,8 +265,8 @@ func generate3DModel(ctx context.Context, inpImage InputImage, depths *[][]int, 
 		edgeDistX = computeEdgeDistX(inpImage)
 	}
 
-	// "VoxelScale" controls global voxel size: scale down the image
-	// by this factor. 1.0 means 1 pixel = 1 voxel.
+	// "VoxelScale" controls global voxel size
+	// 1.0 means 1 pixel = 1 voxel.
 	scale := inpImage.settings.VoxelScale
 	if scale < 1.0 {
 		scale = 1.0
@@ -454,7 +276,6 @@ func generate3DModel(ctx context.Context, inpImage InputImage, depths *[][]int, 
 	outH := int(math.Ceil(float64(inpImage.height) / scale))
 
 	voxels := NewVoxelMap(outW)
-	defer voxels.Clear()
 
 	pool := NewWorkerPool(ctx, 0)
 	for oi := 0; oi < outW; oi++ {
@@ -466,19 +287,10 @@ func generate3DModel(ctx context.Context, inpImage InputImage, depths *[][]int, 
 	pool.Wait()
 
 	if ctx.Err() != nil {
-		return ctx.Err()
+		return nil, ctx.Err()
 	}
 
-	logger.INFO("Generating mesh ...\n")
-
-	err := writeVoxels(ctx, voxels, inpImage.settings, outFile)
-	if err != nil {
-		return err
-	}
-
-	logger.Infof("Done! Saved as %s\n", *outFile)
-
-	return nil
+	return voxels, nil
 }
 
 func processGeneratorColumn(
