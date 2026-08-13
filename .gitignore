@@ -6,3 +6,4 @@ frontend/dist
 *.app
 *.exe
 *.syso
+Builder
