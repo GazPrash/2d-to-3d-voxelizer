@@ -4,7 +4,7 @@
 
 <img width="324" height="250" alt="poster2" src="https://github.com/user-attachments/assets/96b80efb-8aad-403b-acce-3800d22a3634" />
 
-<video src="https://github.com/user-attachments/assets/67908669-e253-4b2a-b792-5769ea251da1" controls autoplay loop muted style="max-width: 100%;"></video>
+<video src="https://github.com/user-attachments/assets/95ad0cdb-2660-44df-bb6b-8aa2d490d998" controls autoplay loop muted style="max-width: 100%;"></video>
 
 A simple tool that can be used to generate 3D voxel art based on a 2d pixel art sprite, or generate a fully 3d object
 based on provided 4 or 6 sided pixel-art sprite sheet. The output can be saved as a .obj file which can be imported or used
@@ -15,8 +15,7 @@ a downside, which is this method may not be very useful for complicated pixel ar
 The tree art in the image and video was taken for the demo from here: https://graphscriptdev.itch.io/plant-trees?download
 
 ## Modes
-
-<img width="700" height="377" alt="image" src="https://github.com/user-attachments/assets/b692fe92-fc10-46d3-97a3-51110204a298" />
+<img width="796" height="600" alt="image" src="https://github.com/user-attachments/assets/a8c6dadb-6121-44f7-8630-fd0b9a3c4b82" />
 
 the app supports various generation modes based on the type of sprite input;
 
