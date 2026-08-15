@@ -124,11 +124,11 @@ function App() {
 
     const filePromise = (file && file.size > 0)
       ? new Promise<string>((resolve, reject) => {
-          const reader = new FileReader();
-          reader.onload = () => resolve((reader.result as string).split(',')[1]);
-          reader.onerror = reject;
-          reader.readAsDataURL(file);
-        })
+        const reader = new FileReader();
+        reader.onload = () => resolve((reader.result as string).split(',')[1]);
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
+      })
       : ReadLocalFileBase64(filePath!);
 
     const [base64String, readErr] = await filePromise.then(v => [v, null] as const).catch(e => [null, e] as const);
@@ -165,20 +165,20 @@ function App() {
       <div className="app-container" style={{ position: 'relative' }}>
         <div style={{ position: 'relative', zIndex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '1rem' }}>
           <div style={{ display: 'flex', flexDirection: 'row', alignItems: 'center', gap: '0.8rem' }}>
-          <div className="loader"></div>
-          <h2 style={{ color: '#334155', margin: 0, fontSize: '0.9rem', fontWeight: 'normal' }}>Generating 3D Model...</h2>
-        </div>
-        {showCancel && (
-          <button
-            className="btn-small-rounded btn-save"
-            onClick={() => {
-              CancelProcessing();
-              setViewState('main');
-            }}
-          >
-            Cancel Generation
-          </button>
-        )}
+            <div className="loader"></div>
+            <h2 style={{ color: '#334155', margin: 0, fontSize: '0.9rem', fontWeight: 'normal' }}>Generating 3D Model...</h2>
+          </div>
+          {showCancel && (
+            <button
+              className="btn-small-rounded btn-save"
+              onClick={() => {
+                CancelProcessing();
+                setViewState('main');
+              }}
+            >
+              Cancel Generation
+            </button>
+          )}
         </div>
       </div>
     );

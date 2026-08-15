@@ -63,7 +63,7 @@ export default function Editor({ objContent, mtlContent, isIsometric, palette, o
       let calcDepth = 1;
       obj.traverse((child) => {
         if (!(child as THREE.Mesh).isMesh || calcDepth !== 1) return;
-        
+
         const mesh = child as THREE.Mesh;
         const posAttr = mesh.geometry.attributes.position;
         for (let i = 0; i < posAttr.count; i += 3) {
@@ -157,7 +157,7 @@ export default function Editor({ objContent, mtlContent, isIsometric, palette, o
       <div className={`editor-workspace ${activeTool === 'brush' ? 'cursor-brush' : activeTool === 'eraser' ? 'cursor-eraser' : ''}`}>
         <div ref={mountRef} className="editor-canvas-container" />
 
-        <EditorPalette 
+        <EditorPalette
           paletteColors={paletteColors}
           selectedColor={selectedColor}
           activeTool={activeTool}
@@ -167,7 +167,7 @@ export default function Editor({ objContent, mtlContent, isIsometric, palette, o
           }}
         />
 
-        <EditorTools 
+        <EditorTools
           activeTool={activeTool}
           onToggleBrush={() => setActiveTool(activeTool === 'brush' ? 'none' : 'brush')}
           onToggleEraser={() => setActiveTool(activeTool === 'eraser' ? 'none' : 'eraser')}
@@ -189,12 +189,12 @@ export default function Editor({ objContent, mtlContent, isIsometric, palette, o
         </div>
 
         <div className="bottom-right-controls">
-          <EditorHistory 
+          <EditorHistory
             canUndo={edits.length > 0}
             onUndo={() => setEdits(prev => prev.slice(0, -1))}
             onReset={() => setEdits([])}
           />
-          <EditorControls 
+          <EditorControls
             onCancel={onCancel}
             onDone={handleApply}
           />

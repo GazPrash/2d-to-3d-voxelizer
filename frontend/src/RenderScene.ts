@@ -1,9 +1,9 @@
-import { useEffect, useRef } from 'react';
-import * as THREE from 'three';
-import { OBJLoader } from 'three/examples/jsm/loaders/OBJLoader.js';
-import { MTLLoader } from 'three/examples/jsm/loaders/MTLLoader.js';
-import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
-import * as BufferGeometryUtils from 'three/examples/jsm/utils/BufferGeometryUtils.js';
+import { useEffect, useRef } from "react";
+import * as THREE from "three";
+import { OBJLoader } from "three/examples/jsm/loaders/OBJLoader.js";
+import { MTLLoader } from "three/examples/jsm/loaders/MTLLoader.js";
+import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
+import * as BufferGeometryUtils from "three/examples/jsm/utils/BufferGeometryUtils.js";
 
 interface UseRenderSceneProps {
   mountRef: React.RefObject<HTMLDivElement>;
@@ -22,7 +22,7 @@ export function useRenderScene({
   isRenderMode,
   isIsometric,
   isEditorMode = false,
-  onObjectLoaded
+  onObjectLoaded,
 }: UseRenderSceneProps) {
   const sceneRef = useRef<THREE.Scene | null>(null);
   const cameraRef = useRef<THREE.Camera | null>(null);
@@ -38,14 +38,23 @@ export function useRenderScene({
 
     const scene = new THREE.Scene();
     sceneRef.current = scene;
-    scene.background = isRenderMode ? new THREE.Color(0xfdecd2) : new THREE.Color(0xcccccc);
+    scene.background = isRenderMode
+      ? new THREE.Color(0xfdecd2)
+      : new THREE.Color(0xcccccc);
 
     const aspect = width / height;
     let camera: THREE.PerspectiveCamera | THREE.OrthographicCamera;
-    
+
     if (isIsometric) {
       const frustumSize = 10;
-      camera = new THREE.OrthographicCamera(frustumSize * aspect / -2, frustumSize * aspect / 2, frustumSize / 2, frustumSize / -2, 0.1, 1000);
+      camera = new THREE.OrthographicCamera(
+        (frustumSize * aspect) / -2,
+        (frustumSize * aspect) / 2,
+        frustumSize / 2,
+        frustumSize / -2,
+        0.1,
+        1000,
+      );
       camera.position.set(10, 10, 10);
     } else {
       camera = new THREE.PerspectiveCamera(75, aspect, 0.1, 1000);
@@ -87,27 +96,27 @@ export function useRenderScene({
       directionalLight.shadow.bias = -0.0005;
 
       const planeGeometry = new THREE.PlaneGeometry(100, 100);
-      
-      const canvas = document.createElement('canvas');
+
+      const canvas = document.createElement("canvas");
       canvas.width = 512;
       canvas.height = 512;
-      const context = canvas.getContext('2d');
+      const context = canvas.getContext("2d");
       if (context) {
-        context.fillStyle = '#f5f5dc'; 
+        context.fillStyle = "#f5f5dc";
         context.fillRect(0, 0, 512, 512);
-        context.fillStyle = '#e6e6cc'; 
+        context.fillStyle = "#e6e6cc";
         context.fillRect(0, 0, 256, 256);
         context.fillRect(256, 256, 256, 256);
       }
       const checkerTexture = new THREE.CanvasTexture(canvas);
       checkerTexture.wrapS = THREE.RepeatWrapping;
       checkerTexture.wrapT = THREE.RepeatWrapping;
-      checkerTexture.repeat.set(50, 50); 
+      checkerTexture.repeat.set(50, 50);
 
-      const planeMaterial = new THREE.MeshStandardMaterial({ 
+      const planeMaterial = new THREE.MeshStandardMaterial({
         map: checkerTexture,
         roughness: 0.9,
-        metalness: 0.1
+        metalness: 0.1,
       });
       const plane = new THREE.Mesh(planeGeometry, planeMaterial);
       plane.rotation.x = -Math.PI / 2;
@@ -127,11 +136,11 @@ export function useRenderScene({
     controls.mouseButtons = {
       LEFT: THREE.MOUSE.ROTATE,
       MIDDLE: THREE.MOUSE.ROTATE,
-      RIGHT: THREE.MOUSE.PAN
+      RIGHT: THREE.MOUSE.PAN,
     };
     controls.minDistance = 0.5;
     controls.maxDistance = 100;
-    
+
     // for orthographic camera
     controls.minZoom = 0.1;
     controls.maxZoom = 10;
@@ -140,14 +149,14 @@ export function useRenderScene({
 
     if (isEditorMode) {
       controls.rotateSpeed = 0.6; // slow down orbit
-      controls.panSpeed = 2.0;    // speed up pan
-      controls.zoomSpeed = 2.0;   // speed up zoom
+      controls.panSpeed = 2.0; // speed up pan
+      controls.zoomSpeed = 2.0; // speed up zoom
     }
 
-    const mtlBlob = new Blob([mtlContent], { type: 'text/plain' });
+    const mtlBlob = new Blob([mtlContent], { type: "text/plain" });
     const mtlUrl = URL.createObjectURL(mtlBlob);
 
-    const blob = new Blob([objContent], { type: 'text/plain' });
+    const blob = new Blob([objContent], { type: "text/plain" });
     const url = URL.createObjectURL(blob);
 
     const mtlLoader = new MTLLoader();
@@ -167,13 +176,19 @@ export function useRenderScene({
             const mesh = child as THREE.Mesh;
             const geom = mesh.geometry.clone();
 
-            const posAttr = geom.getAttribute('position');
+            const posAttr = geom.getAttribute("position");
             const colors = new Float32Array(posAttr.count * 3);
 
-            if (Array.isArray(mesh.material) && geom.groups && geom.groups.length > 0) {
+            if (
+              Array.isArray(mesh.material) &&
+              geom.groups &&
+              geom.groups.length > 0
+            ) {
               for (const group of geom.groups) {
                 const matIndex = group.materialIndex || 0;
-                const color = (mesh.material[matIndex] as any).color || new THREE.Color(1, 1, 1);
+                const color =
+                  (mesh.material[matIndex] as any).color ||
+                  new THREE.Color(1, 1, 1);
                 for (let i = group.start; i < group.start + group.count; i++) {
                   colors[i * 3] = color.r;
                   colors[i * 3 + 1] = color.g;
@@ -183,7 +198,8 @@ export function useRenderScene({
             } else {
               let color = new THREE.Color(1, 1, 1);
               if (Array.isArray(mesh.material)) {
-                if (mesh.material.length > 0) color = (mesh.material[0] as any).color || color;
+                if (mesh.material.length > 0)
+                  color = (mesh.material[0] as any).color || color;
               } else {
                 color = (mesh.material as any).color || color;
               }
@@ -194,15 +210,18 @@ export function useRenderScene({
               }
             }
 
-            geom.setAttribute('color', new THREE.BufferAttribute(colors, 3));
+            geom.setAttribute("color", new THREE.BufferAttribute(colors, 3));
             geom.applyMatrix4(mesh.matrixWorld);
             geometries.push(geom);
           }
         });
 
         if (geometries.length > 0) {
-          const mergedGeometry = BufferGeometryUtils.mergeGeometries(geometries, false);
-          
+          const mergedGeometry = BufferGeometryUtils.mergeGeometries(
+            geometries,
+            false,
+          );
+
           let material: THREE.Material;
           if (isRenderMode && !isEditorMode) {
             material = new THREE.MeshStandardMaterial({
@@ -221,29 +240,27 @@ export function useRenderScene({
             mergedMesh.castShadow = true;
             mergedMesh.receiveShadow = true;
           }
-          
+
           obj.clear();
           obj.add(mergedMesh);
         }
 
         const box = new THREE.Box3().setFromObject(obj);
         const center = box.getCenter(new THREE.Vector3());
-        
+
         obj.position.set(-center.x, -center.y, -center.z);
-
-
 
         const size = box.getSize(new THREE.Vector3());
         const maxDim = Math.max(size.x, size.y, size.z);
-        const scale = 3 / (maxDim || 1); 
+        const scale = 3 / (maxDim || 1);
 
         const group = new THREE.Group();
         group.add(obj);
         group.scale.set(scale, scale, scale);
-        
+
         loadedObjectGroupRef.current = group;
         scene.add(group);
-        
+
         if (onObjectLoaded) {
           onObjectLoaded(group, box);
         }
@@ -262,7 +279,8 @@ export function useRenderScene({
     animate();
 
     const handleResize = () => {
-      if (!mountRef.current || !rendererRef.current || !cameraRef.current) return;
+      if (!mountRef.current || !rendererRef.current || !cameraRef.current)
+        return;
       const newWidth = mountRef.current.clientWidth;
       const newHeight = mountRef.current.clientHeight;
       const newAspect = newWidth / newHeight;
@@ -278,10 +296,10 @@ export function useRenderScene({
       rendererRef.current.setSize(newWidth, newHeight);
     };
 
-    window.addEventListener('resize', handleResize);
+    window.addEventListener("resize", handleResize);
 
     return () => {
-      window.removeEventListener('resize', handleResize);
+      window.removeEventListener("resize", handleResize);
       cancelAnimationFrame(animationId);
       if (mountRef.current && renderer.domElement) {
         mountRef.current.removeChild(renderer.domElement);
@@ -291,5 +309,11 @@ export function useRenderScene({
     };
   }, [objContent, mtlContent, isRenderMode, isIsometric, isEditorMode]);
 
-  return { sceneRef, cameraRef, rendererRef, loadedObjectGroupRef, controlsRef };
+  return {
+    sceneRef,
+    cameraRef,
+    rendererRef,
+    loadedObjectGroupRef,
+    controlsRef,
+  };
 }
