@@ -55,6 +55,19 @@ Depth scaling controls the thickness and depth structure of the generated voxels
 - **Default Scaling**: The default depth generation creates natural, rounded contours by calculating the thickness based on the sprite's silhouette. This works bethe depth axis to create a solid object.st for rounded or organic objects.
 - **Biased Depth Scaling**: You should use biased depth scaling when your object has varying shapes or requires specific depth fine-tuning. This feature allows you to manually adjust (bias) the depth scale at the **top**, **middle**, and **bottom** sections of the sprite, giving you more precise control over the 3D geometry rather than relying solely on the default rounded interpolation.
 
+## New Config options
+Introducing Roundness Adjustment settings that can help you get a more finer control over the curvature of the model.
+- Steepness Curve: Adjusting this will determine how chuffy or pointy your model is, unless you want a pointy figure (like a Beyblade for instance) you should keep this low or the default value.
+- Base Thickness: This controls the strength of the curvature of your mode, lower value will result in a flat shape and a higher value will make it more round or curvy. Consider the following example:
+
+<img width="350" height="317" alt="image" src="https://github.com/user-attachments/assets/82072806-565d-463c-b70d-0b8ac022c9a0" />
+<img width="350" height="317" alt="image" src="https://github.com/user-attachments/assets/c6593efa-2322-469a-9004-b515a781df76" />
+
+[L] Base Thickness: 2.5 (default)
+[R] Base Thickness: 3.5
+
+> Note: The Depth Scale also affects the base thickness and ultimately has a say on the curvature of the model too! So you may sometimes need to min-max both the scales together to get the best result.
+
 ## [NEW!] Editor Mode
 Any reasonable sized-voxel model is now editable, this can be useful for fixing in-accuracies of the model due to the generation process, note that we use simple math algorithms based approach for the generation hence, it is not always perfect and sometimes can be limited, hence the editor mode was added with the hope that this might fix some of these issues.
 
